@@ -28,8 +28,7 @@ export async function GET(req: Request) {
     const securedMedia = mediaList.map(item => {
       const isAuthorized = 
         item.authorId === session?.user?.id || 
-        (item.isGated && session?.user?.isSubscribed) ||
-        !item.isGated;
+        session?.user?.isSubscribed === true;
 
       return {
         ...item,

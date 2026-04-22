@@ -29,7 +29,9 @@ export interface ChainStreamSubscriptionInterface extends Interface {
       | "isSubscribed"
       | "owner"
       | "payoutRoyalties"
+      | "platformFeeBps"
       | "renounceOwnership"
+      | "setPlatformFee"
       | "setPrice"
       | "subscribe"
       | "subscriberExpirations"
@@ -40,7 +42,10 @@ export interface ChainStreamSubscriptionInterface extends Interface {
   ): FunctionFragment;
 
   getEvent(
-    nameOrSignatureOrTopic: "OwnershipTransferred" | "Subscribed"
+    nameOrSignatureOrTopic:
+      | "OwnershipTransferred"
+      | "PlatformFeeUpdated"
+      | "Subscribed"
   ): EventFragment;
 
   encodeFunctionData(
@@ -53,8 +58,16 @@ export interface ChainStreamSubscriptionInterface extends Interface {
     values: [AddressLike[], BigNumberish[]]
   ): string;
   encodeFunctionData(
+    functionFragment: "platformFeeBps",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "renounceOwnership",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setPlatformFee",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "setPrice",
@@ -89,7 +102,15 @@ export interface ChainStreamSubscriptionInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "platformFeeBps",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "renounceOwnership",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setPlatformFee",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "setPrice", data: BytesLike): Result;
@@ -119,6 +140,18 @@ export namespace OwnershipTransferredEvent {
   export interface OutputObject {
     previousOwner: string;
     newOwner: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace PlatformFeeUpdatedEvent {
+  export type InputTuple = [newBps: BigNumberish];
+  export type OutputTuple = [newBps: bigint];
+  export interface OutputObject {
+    newBps: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -201,7 +234,15 @@ export interface ChainStreamSubscription extends BaseContract {
     "nonpayable"
   >;
 
+  platformFeeBps: TypedContractMethod<[], [bigint], "view">;
+
   renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
+
+  setPlatformFee: TypedContractMethod<
+    [_bps: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
 
   setPrice: TypedContractMethod<[_price: BigNumberish], [void], "nonpayable">;
 
@@ -243,8 +284,14 @@ export interface ChainStreamSubscription extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "platformFeeBps"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
     nameOrSignature: "renounceOwnership"
   ): TypedContractMethod<[], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "setPlatformFee"
+  ): TypedContractMethod<[_bps: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "setPrice"
   ): TypedContractMethod<[_price: BigNumberish], [void], "nonpayable">;
@@ -275,6 +322,13 @@ export interface ChainStreamSubscription extends BaseContract {
     OwnershipTransferredEvent.OutputObject
   >;
   getEvent(
+    key: "PlatformFeeUpdated"
+  ): TypedContractEvent<
+    PlatformFeeUpdatedEvent.InputTuple,
+    PlatformFeeUpdatedEvent.OutputTuple,
+    PlatformFeeUpdatedEvent.OutputObject
+  >;
+  getEvent(
     key: "Subscribed"
   ): TypedContractEvent<
     SubscribedEvent.InputTuple,
@@ -292,6 +346,17 @@ export interface ChainStreamSubscription extends BaseContract {
       OwnershipTransferredEvent.InputTuple,
       OwnershipTransferredEvent.OutputTuple,
       OwnershipTransferredEvent.OutputObject
+    >;
+
+    "PlatformFeeUpdated(uint256)": TypedContractEvent<
+      PlatformFeeUpdatedEvent.InputTuple,
+      PlatformFeeUpdatedEvent.OutputTuple,
+      PlatformFeeUpdatedEvent.OutputObject
+    >;
+    PlatformFeeUpdated: TypedContractEvent<
+      PlatformFeeUpdatedEvent.InputTuple,
+      PlatformFeeUpdatedEvent.OutputTuple,
+      PlatformFeeUpdatedEvent.OutputObject
     >;
 
     "Subscribed(address,uint256,uint256)": TypedContractEvent<

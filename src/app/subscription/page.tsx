@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { parseEther } from "viem";
 
 export default function SubscriptionPage() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const { isConnected } = useAccount();
   const router = useRouter();
   
@@ -37,11 +37,13 @@ export default function SubscriptionPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ txnHash: hash })
-      }).then(() => {
+      }).then(async () => {
+        // Update session so the frontend knows we're subscribed
+        await update();
         setSubscribed(true);
       });
     }
-  }, [isSuccess, hash]);
+  }, [isSuccess, hash, update]);
 
   const handleSubscribe = async () => {
     if (!isConnected) {

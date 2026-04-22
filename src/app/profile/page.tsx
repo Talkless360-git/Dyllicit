@@ -59,6 +59,13 @@ export default async function ProfileDashboard() {
             <span style={{ background: "rgba(255,255,255,0.1)", padding: "0.25rem 0.75rem", borderRadius: "1rem", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                {user.role}
             </span>
+            {!hasPremium && (
+              <Link href="/subscription" style={{ textDecoration: "none" }}>
+                <span style={{ background: "var(--primary)", color: "white", padding: "0.25rem 0.75rem", borderRadius: "1rem", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: "bold", cursor: "pointer" }}>
+                   <Star size={14} fill="white" /> UPGRADE TO PREMIUM
+                </span>
+              </Link>
+            )}
             {hasPremium && (
               <span style={{ background: "rgba(34, 197, 94, 0.2)", color: "#4ade80", border: "1px solid #22c55e", padding: "0.25rem 0.75rem", borderRadius: "1rem", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                  <CheckCircle size={14} /> PREMIUM TIER

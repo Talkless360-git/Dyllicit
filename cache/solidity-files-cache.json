@@ -841,8 +841,8 @@
       ]
     },
     "C:\\Users\\TalkLess\\Desktop\\cluade\\chainstream\\contracts\\ChainStreamSubscription.sol": {
-      "lastModificationDate": 1776785041654,
-      "contentHash": "7a8d366ed05058ddbf986920cfff1463",
+      "lastModificationDate": 1776857421629,
+      "contentHash": "778e353c547ac900b9df8f7f50536c53",
       "sourceName": "contracts/ChainStreamSubscription.sol",
       "solcConfig": {
         "version": "0.8.24",

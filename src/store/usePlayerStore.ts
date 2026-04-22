@@ -4,6 +4,7 @@ interface Track {
   id: string;
   title: string;
   artist: string;
+  authorId?: string;
   url: string;
   thumbnailUrl?: string;
   type: 'audio' | 'video';

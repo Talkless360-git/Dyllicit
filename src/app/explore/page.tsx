@@ -3,9 +3,11 @@
 import React, { useState } from 'react';
 import ContentCard from '@/components/ui/ContentCard';
 import { Search, Filter, LayoutGrid, List } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 
 export default function ExplorePage() {
+  const { data: session } = useSession();
   const [filter, setFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -14,6 +16,7 @@ export default function ExplorePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   React.useEffect(() => {
+    setIsLoading(true);
     fetch('/api/media')
       .then(res => res.json())
       .then(data => {
@@ -26,7 +29,7 @@ export default function ExplorePage() {
         console.error("Failed to fetch media:", err);
         setIsLoading(false);
       });
-  }, []);
+  }, [session?.user?.isSubscribed]);
 
   const filteredData = mediaList.filter(item => {
     // Safely handle missing author data
@@ -51,6 +54,7 @@ export default function ExplorePage() {
       id: item.id,
       title: item.title,
       artist: item.author?.name || `${item.author?.address?.slice(0, 6)}...`,
+      authorId: item.authorId,
       url: item.url,
       thumbnailUrl: item.thumbnailUrl,
       isGated: item.isGated,
@@ -120,6 +124,7 @@ export default function ExplorePage() {
               id={item.id}
               title={item.title}
               artist={item.author?.name || `${item.author?.address?.slice(0, 6)}...`}
+              authorId={item.authorId}
               url={item.url}
               thumbnailUrl={item.thumbnailUrl}
               isGated={item.isGated}

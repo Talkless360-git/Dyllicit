@@ -25,6 +25,7 @@ const Sidebar: React.FC = () => {
     { name: 'Discover', href: '/explore', icon: Compass },
     { name: 'Search', href: '/search', icon: Search },
     { name: 'Library', href: '/library', icon: Library },
+    { name: 'Premium', href: '/subscription', icon: Star },
     ...(user?.role === 'ARTIST' || user?.role === 'ADMIN' ? [
       { name: 'Mint', href: '/mint', icon: PlusCircle },
       { name: 'Studio', href: '/artist', icon: Music2 }
@@ -84,6 +85,14 @@ const Sidebar: React.FC = () => {
                   <p style={{ fontSize: '0.7rem', opacity: 0.5, margin: 0 }}>{user.role}</p>
                 </div>
               </div>
+              
+              {!user.isSubscribed && (
+                <Link href="/subscription" style={{ display: 'block', marginBottom: '1rem' }}>
+                  <Button variant="primary" size="sm" fullWidth style={{ background: 'linear-gradient(45deg, var(--primary), var(--accent))' }}>
+                    <Star size={14} className="mr-1" /> Get Premium
+                  </Button>
+                </Link>
+              )}
               
               {user.isSubscribed && (
                  <div style={{ background: 'linear-gradient(90deg, #f59e0b, #d97706)', padding: '0.2rem 0.6rem', borderRadius: '0.5rem', fontSize: '0.65rem', fontWeight: 800, marginBottom: '0.75rem', textAlign: 'center' }}>

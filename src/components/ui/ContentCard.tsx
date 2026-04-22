@@ -2,11 +2,13 @@ import { getIPFSUrl } from '@/lib/ipfs/utils';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { Play, Lock } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 interface ContentCardProps {
   id: string;
   title: string;
   artist: string;
+  authorId?: string;
   thumbnailUrl?: string;
   url: string | null;
   isGated: boolean;
@@ -16,17 +18,28 @@ interface ContentCardProps {
 }
 
 const ContentCard: React.FC<ContentCardProps> = ({ 
-  id, title, artist, thumbnailUrl, url, isGated, type, layout = 'grid', onPlay
+  id, title, artist, authorId, thumbnailUrl, url, isGated: originalIsGated, type, layout = 'grid', onPlay
 }) => {
+  const { data: session } = useSession();
   const { setCurrentTrack } = usePlayerStore();
   const safeThumbnail = getIPFSUrl(thumbnailUrl) || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop';
 
+  const isSubscriber = session?.user?.isSubscribed;
+  const isAuthor = !!session?.user?.id && !!authorId && session.user.id === authorId;
+  
+  // All tracks are gated unless the user is a subscriber or the author
+  const effectiveIsGated = !isSubscriber && !isAuthor;
+
   const handlePlay = () => {
-    if (isGated && !url) {
+    if (effectiveIsGated && !url) {
       alert("This content is Gated. You need a subscription to play it.");
       return;
     }
-    const track = { id, title, artist, url: url || '', thumbnailUrl: safeThumbnail, type, isGated };
+    const track = { 
+      id, title, artist, authorId, 
+      url: url || '', thumbnailUrl: safeThumbnail, 
+      type, isGated: effectiveIsGated 
+    };
     if (onPlay) {
       onPlay(track);
     } else {
@@ -39,9 +52,9 @@ const ContentCard: React.FC<ContentCardProps> = ({
       <div className="card-image-wrap" onClick={handlePlay} style={{ cursor: "pointer" }}>
         <img src={safeThumbnail} alt={title} />
         <div className="card-overlay">
-          {isGated ? <Lock size={layout === 'list' ? 20 : 32} /> : <Play size={layout === 'list' ? 20 : 32} fill="white" />}
+          {effectiveIsGated ? <Lock size={layout === 'list' ? 20 : 32} /> : <Play size={layout === 'list' ? 20 : 32} fill="white" />}
         </div>
-        {isGated && <div className="gated-badge">{layout === 'list' ? 'GATED' : 'NFT GATED'}</div>}
+        {effectiveIsGated && <div className="gated-badge">{layout === 'list' ? 'GATED' : 'SUBSCRIBER GATED'}</div>}
       </div>
       
       <div className="card-info">

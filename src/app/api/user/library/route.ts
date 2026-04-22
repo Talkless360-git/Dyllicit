@@ -64,10 +64,15 @@ export async function GET(req: Request) {
       })
       .slice(0, 20);
 
+    const redactMedia = (media: any) => ({
+      ...media,
+      url: (media.authorId === userId || session.user.isSubscribed) ? media.url : null
+    });
+
     return NextResponse.json({
-      owned: ownedMedia,
-      likes: likedMedia,
-      recent: uniqueRecentMedia
+      owned: ownedMedia.map(redactMedia),
+      likes: likedMedia.map(redactMedia),
+      recent: uniqueRecentMedia.map(redactMedia)
     });
   } catch (error: any) {
     console.error("Library fetch error:", error);

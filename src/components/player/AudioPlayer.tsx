@@ -35,7 +35,8 @@ const AudioPlayer: React.FC = () => {
   const [localTime, setLocalTime] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   
-  const isGated = currentTrack?.isGated && !isSubscriber;
+  const isAuthor = !!session?.user?.id && !!currentTrack?.authorId && session.user.id === currentTrack.authorId;
+  const isGated = !isSubscriber && !isAuthor;
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -81,6 +82,9 @@ const AudioPlayer: React.FC = () => {
   // Record Stream History
   useEffect(() => {
     if (session && currentTrack && isPlaying) {
+      // Skip recording for artists playing their own songs (no royalties for self-plays)
+      if (currentTrack.authorId === session.user.id) return;
+
       const recordStream = async () => {
         try {
           await fetch('/api/interactions/stream', {

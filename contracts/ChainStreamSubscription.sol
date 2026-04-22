@@ -6,10 +6,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract ChainStreamSubscription is Ownable {
     uint256 public subscriptionPrice = 0.01 ether;
     uint256 public subscriptionDuration = 30 days;
+    uint256 public platformFeeBps = 250; // 2.5%
 
     mapping(address => uint256) public subscriberExpirations;
 
     event Subscribed(address indexed user, uint256 newExpiration, uint256 amountPaid);
+    event PlatformFeeUpdated(uint256 newBps);
 
     constructor() Ownable(msg.sender) {}
 
@@ -17,8 +19,20 @@ contract ChainStreamSubscription is Ownable {
         subscriptionPrice = _price;
     }
 
+    function setPlatformFee(uint256 _bps) external onlyOwner {
+        require(_bps <= 1000, "Fee too high"); // Max 10%
+        platformFeeBps = _bps;
+        emit PlatformFeeUpdated(_bps);
+    }
+
     function subscribe() external payable {
         require(msg.value >= subscriptionPrice, "Insufficient payment");
+
+        // Split fee: send platform cut to owner immediately
+        uint256 platformCut = (msg.value * platformFeeBps) / 10000;
+        if (platformCut > 0) {
+            payable(owner()).transfer(platformCut);
+        }
 
         if (subscriberExpirations[msg.sender] < block.timestamp) {
             subscriberExpirations[msg.sender] = block.timestamp + subscriptionDuration;

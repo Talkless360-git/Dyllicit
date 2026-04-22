@@ -25,13 +25,18 @@ const WalletConnect: React.FC<WalletConnectProps> = ({ fullWidth = true }) => {
   const user = session?.user;
   const { signMessageAsync } = useSignMessage();
   
+  const [mounted, setMounted] = React.useState(false);
   const lastBoundAddress = React.useRef<string | null>(null);
   const bindingRef = React.useRef(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Sync wallet address with backend session to maintain consistency
   React.useEffect(() => {
     const bindWallet = async () => {
-      if (!isConnected || !address || !user) return;
+      if (!mounted || !isConnected || !address || !user) return;
       
       const currentAddress = address.toLowerCase();
       const sessionAddress = user.address?.toLowerCase();
@@ -78,6 +83,8 @@ const WalletConnect: React.FC<WalletConnectProps> = ({ fullWidth = true }) => {
   const shortenAddress = (addr: string) => {
     return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
   };
+
+  if (!mounted) return null;
 
   // State: Not Connected
   if (!isConnected) {

@@ -46,7 +46,7 @@ export default function LibraryPage() {
           setIsLoading(false);
         });
     }
-  }, [session]);
+  }, [session?.user?.isSubscribed]);
 
   const handlePlayTrack = (track: any, section: any[]) => {
     setCurrentTrack(track);
@@ -54,6 +54,7 @@ export default function LibraryPage() {
       id: item.id,
       title: item.title,
       artist: item.author?.name || `${item.author?.address?.slice(0, 6)}...`,
+      authorId: item.authorId,
       url: item.url,
       thumbnailUrl: item.thumbnailUrl,
       isGated: item.isGated,
@@ -87,6 +88,7 @@ export default function LibraryPage() {
               id={item.id}
               title={item.title}
               artist={item.author?.name || `${item.author?.address?.slice(0, 6)}...`}
+              authorId={item.authorId}
               url={item.url}
               thumbnailUrl={item.thumbnailUrl}
               isGated={item.isGated}
