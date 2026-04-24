@@ -4,8 +4,12 @@ interface User {
   id: string;
   address: string;
   name?: string;
+  bio?: string;
   image?: string;
   role: string;
+  payoutAddress?: string;
+  twitter?: string;
+  instagram?: string;
 }
 
 interface AuthState {

@@ -41,7 +41,7 @@ export default function AdminDashboard() {
     { name: 'Total Streams', value: stats?.totalStreams || 0, icon: Play, color: '#8b5cf6' },
     { name: 'Total Users', value: stats?.totalUsers || 0, icon: Users, color: '#3b82f6' },
     { name: 'Total Media', value: stats?.totalMedia || 0, icon: Music, color: '#ec4899' },
-    { name: 'payouts (Est.)', value: `$${(stats?.totalStreams || 0 * 0.05).toFixed(2)}`, icon: DollarSign, color: '#10b981' },
+    { name: 'payouts (Est.)', value: `$${((stats?.totalStreams || 0) * 0.05).toFixed(2)}`, icon: DollarSign, color: '#10b981' },
   ];
 
   return (

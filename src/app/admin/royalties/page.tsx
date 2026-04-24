@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
 import Button from '@/components/ui/Button';
 import { 
   Coins, 
@@ -25,8 +26,22 @@ interface Settlement {
   _count: { settlements: number };
 }
 
+interface ArtistSettlement {
+  id: string;
+  artistId: string;
+  payoutAmount: number;
+  streamsCount: number;
+  isPaid: boolean;
+  artist: {
+    address: string;
+    payoutAddress: string | null;
+    name: string | null;
+  };
+}
+
 interface RoyaltyStats {
   contractBalance: string;
+  platformEarnings: string;
   lastSettlementDate: string | null;
   pendingSettlementsCount: number;
   isDue: boolean;
@@ -37,7 +52,10 @@ export default function RoyaltiesPage() {
   const [stats, setStats] = useState<RoyaltyStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [payoutData, setPayoutData] = useState<{ artists: string[], amounts: string[], count: number, rawSettlements: any[] } | null>(null);
+  const [payoutData, setPayoutData] = useState<{ artists: string[], amounts: string[], count: number, rawSettlements: ArtistSettlement[] } | null>(null);
+  const [contractOwner, setContractOwner] = useState<string | null>(null);
+
+  const { address: connectedAddress } = useAccount();
 
   const fetchStats = async () => {
     try {
@@ -46,6 +64,16 @@ export default function RoyaltiesPage() {
       if (data.success) {
         setStats(data.stats);
       }
+      
+      // Also fetch contract owner for UI guidance
+      const signer = await getSigner();
+      const contract = new Contract(
+        ChainStreamSubscription.address,
+        ChainStreamSubscription.abi,
+        signer
+      );
+      const owner = await contract.owner();
+      setContractOwner(owner);
     } catch (e) {
       console.error(e);
     } finally {
@@ -119,7 +147,7 @@ export default function RoyaltiesPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             txHash: tx.hash,
-            settlementIds: payoutData.rawSettlements.map((s: any) => s.id)
+            settlementIds: payoutData.rawSettlements.map((s) => s.id)
           })
         });
         
@@ -140,7 +168,7 @@ export default function RoyaltiesPage() {
   return (
     <div className="royalties-page animate-fade-in">
       <div className="header">
-        <h1>Royalty Management Hub</h1>
+        <h1>Dyllicit Royalty Hub</h1>
         <p>Calculate, settle, and execute streaming payments to platform artists.</p>
       </div>
 
@@ -158,8 +186,16 @@ export default function RoyaltiesPage() {
         <div className="stat-card glass">
           <div className="stat-icon"><Coins /></div>
           <div className="stat-content">
-            <span className="label">Contract Balance</span>
+            <span className="label">Royalty Pool Balance</span>
             <span className="value">{stats?.contractBalance} ETH</span>
+          </div>
+        </div>
+
+        <div className="stat-card glass">
+          <div className="stat-icon" style={{ color: '#10b981', background: 'rgba(16,185,129,0.1)' }}><Wallet /></div>
+          <div className="stat-content">
+            <span className="label">Platform Earnings (2.5%)</span>
+            <span className="value">{stats?.platformEarnings} ETH</span>
           </div>
         </div>
 
@@ -178,6 +214,25 @@ export default function RoyaltiesPage() {
           <div className="stat-content">
             <span className="label">Pending Payouts</span>
             <span className="value">{stats?.pendingSettlementsCount} Records</span>
+          </div>
+        </div>
+
+        <div className="stat-card glass full-width-card">
+          <div className="stat-icon"><Wallet /></div>
+          <div className="stat-content">
+            <span className="label">Contract Owner (Required for Payouts)</span>
+            <span className="value" style={{ fontSize: '0.9rem', fontFamily: 'monospace' }}>
+              {contractOwner ? `${contractOwner.slice(0, 10)}...${contractOwner.slice(-8)}` : 'Loading...'}
+            </span>
+            <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {connectedAddress?.toLowerCase() === contractOwner?.toLowerCase() ? (
+                <span className="status-badge success" style={{ fontSize: '0.7rem' }}>✓ Authorized Wallet Connected</span>
+              ) : (
+                <span className="status-badge warning" style={{ fontSize: '0.7rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+                  ⚠ Switch to Owner Wallet to execute payouts
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -272,12 +327,13 @@ export default function RoyaltiesPage() {
         .alert.warning { color: #f59e0b; }
         .alert p { margin: 0.25rem 0 0; font-size: 0.9rem; opacity: 0.8; }
 
-        .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
         .stat-card { padding: 1.5rem; border-radius: 1rem; display: flex; align-items: center; gap: 1.25rem; }
-        .stat-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); color: var(--primary); display: flex; align-items: center; justifyContent: center; }
+        .stat-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; }
         .stat-content { display: flex; flex-direction: column; }
         .stat-content .label { font-size: 0.8rem; opacity: 0.6; }
         .stat-content .value { font-size: 1.25rem; font-weight: 700; }
+        .full-width-card { grid-column: span 4; }
 
         .actions-section { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
         .action-card { padding: 2rem; border-radius: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }

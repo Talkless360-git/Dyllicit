@@ -47,7 +47,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({ fullWidth = true }) => {
         bindingRef.current = true;
         
         try {
-          const message = `Verify wallet ownership for ChainStream: ${address}`;
+          const message = `Verify wallet ownership for Dyllicit: ${address}`;
           console.log("[WalletConnect] Requesting signature...");
           const signature = await signMessageAsync({ message });
 

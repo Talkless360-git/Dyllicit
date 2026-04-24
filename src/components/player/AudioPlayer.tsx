@@ -45,7 +45,7 @@ const AudioPlayer: React.FC = () => {
   const frequencyData = useVisualizer(mediaRef);
 
   const lyrics = [
-    { time: 0, text: "Welcome to ChainStream" },
+    { time: 0, text: "Welcome to Dyllicit" },
     { time: 5, text: "Feel the vibration of the block" },
     { time: 10, text: "Your music, your assets, your soul" },
     { time: 15, text: "Streaming on the decentralized path" },
@@ -280,7 +280,7 @@ const AudioPlayer: React.FC = () => {
             </button>
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontSize: '0.75rem', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '2px' }}>Playing From</p>
-              <h5 style={{ margin: 0 }}>ChainStream Discover</h5>
+              <h5 style={{ margin: 0 }}>Dyllicit Discover</h5>
             </div>
             <button className="icon-btn"><Star size={24} /></button>
           </header>

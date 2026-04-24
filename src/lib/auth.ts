@@ -79,7 +79,7 @@ export const authOptions: NextAuthOptions = {
             adminUser = await prisma.user.create({
               data: {
                 name: 'System Administrator',
-                email: 'admin@chainstream.network',
+                email: 'admin@dyllicit.network',
                 role: 'ADMIN',
                 address: '0x0000000000000000000admin'
               }
@@ -97,7 +97,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       const cookieStore = cookies();
-      const pendingRole = cookieStore.get("chainstream_pending_role")?.value;
+      const pendingRole = cookieStore.get("dyllicit_pending_role")?.value;
       
       if (pendingRole && (pendingRole === "LISTENER" || pendingRole === "ARTIST") && user.id) {
         const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
@@ -105,7 +105,7 @@ export const authOptions: NextAuthOptions = {
         // Don't downgrade admins
         if (dbUser?.role === 'ADMIN') {
           try {
-            cookieStore.delete("chainstream_pending_role");
+            cookieStore.delete("dyllicit_pending_role");
           } catch(e) {}
           return true;
         }
@@ -121,7 +121,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-           cookieStore.delete("chainstream_pending_role");
+           cookieStore.delete("dyllicit_pending_role");
         } catch(e) {}
       }
       return true;

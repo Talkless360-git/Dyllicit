@@ -31,7 +31,7 @@ export function useAuth() {
       const message = new SiweMessage({
         domain: window.location.host,
         address: address,
-        statement: 'Sign in to ChainStream',
+        statement: 'Sign in to Dyllicit',
         uri: window.location.origin,
         version: '1',
         chainId: chainId,

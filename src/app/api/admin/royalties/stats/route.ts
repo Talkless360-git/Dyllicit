@@ -3,9 +3,16 @@ import prisma from '@/lib/db/prisma';
 import { ethers } from 'ethers';
 import { getProvider } from '@/lib/blockchain/provider';
 import ChainStreamSubscription from '@/lib/blockchain/contracts/ChainStreamSubscription.json';
+import { authOptions } from '@/lib/auth';
+import { getServerSession } from 'next-auth/next';
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user?.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const provider = getProvider();
     const contractAddress = ChainStreamSubscription.address;
     
@@ -41,10 +48,15 @@ export async function GET() {
       ? (new Date().getTime() - new Date(lastSettlement.processedAt).getTime()) > 30 * 24 * 60 * 60 * 1000
       : true;
 
+    // 6. Calculate total platform earnings (2.5% of 0.01 ETH per subscription)
+    const totalSubscriptions = await prisma.subscription.count();
+    const platformEarningsEth = (totalSubscriptions * 0.01 * 0.025).toFixed(5);
+
     return NextResponse.json({
       success: true,
       stats: {
         contractBalance: balanceEth,
+        platformEarnings: platformEarningsEth,
         lastSettlementDate: lastSettlement?.processedAt,
         pendingSettlementsCount,
         isDue,

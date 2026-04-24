@@ -97,7 +97,7 @@ export default function SubscriptionPage() {
       <header className="premium-header">
         <span className="badge">GO PREMIUM</span>
         <h1>Unlock the Full Potential</h1>
-        <p>Join the next generation of music listeners with ChainStream Premium.</p>
+        <p>Join the next generation of music listeners with Dyllicit Premium.</p>
       </header>
 
       {loading ? (

@@ -184,7 +184,7 @@ const MintForm: React.FC = () => {
       <div className="mint-success animate-fade-in">
         <CheckCircle size={64} color="var(--success)" />
         <h2>NFT Minted Successfully!</h2>
-        <p>Your content is now live on the ChainStream Protocol.</p>
+        <p>Your content is now live on the Dyllicit Protocol.</p>
         <Button variant="glass" onClick={() => setIsSuccess(false)}>Mint Another</Button>
       </div>
     );

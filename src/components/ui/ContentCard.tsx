@@ -2,6 +2,7 @@ import { getIPFSUrl } from '@/lib/ipfs/utils';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { Play, Lock } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 
 interface ContentCardProps {
@@ -50,7 +51,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
   return (
     <div className={`content-card glass ${layout}`}>
       <div className="card-image-wrap" onClick={handlePlay} style={{ cursor: "pointer" }}>
-        <img src={safeThumbnail} alt={title} />
+        <Image src={safeThumbnail} alt={title} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
         <div className="card-overlay">
           {effectiveIsGated ? <Lock size={layout === 'list' ? 20 : 32} /> : <Play size={layout === 'list' ? 20 : 32} fill="white" />}
         </div>

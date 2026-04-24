@@ -133,7 +133,7 @@ export default function ArtistSettings() {
 
             <div className="info-box">
               <CheckCircle size={16} />
-              <p>On-chain royalties are distributed automatically through the ChainStream smart contract protocol.</p>
+              <p>On-chain royalties are distributed automatically through the Dyllicit smart contract protocol.</p>
             </div>
           </section>
         </div>

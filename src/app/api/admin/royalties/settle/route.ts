@@ -15,17 +15,33 @@ export async function POST() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get the actual contract balance from the subscription contract
+    // 1. Get the actual contract balance from the subscription contract
     const provider = getProvider();
     const contractAddress = ChainStreamSubscription.address;
     const balanceWei = await provider.getBalance(contractAddress);
-    const totalPool = parseFloat(ethers.formatEther(balanceWei));
+    
+    // 2. Calculate already committed (pending) payouts that haven't been sent yet
+    const pendingSettlements = await prisma.artistSettlement.findMany({
+      where: { isPaid: false },
+      select: { payoutAmount: true }
+    });
+    
+    const committedWei = pendingSettlements.reduce((acc, curr) => {
+      return acc + ethers.parseEther(curr.payoutAmount.toFixed(18));
+    }, BigInt(0));
+    
+    // 3. Calculate available pool for NEW streams
+    const availableWei = balanceWei > committedWei ? balanceWei - committedWei : BigInt(0);
+    const totalPool = parseFloat(ethers.formatEther(availableWei));
 
-    if (totalPool === 0) {
-      return NextResponse.json({ success: false, error: 'Subscription pool is empty' }, { status: 400 });
+    if (availableWei === BigInt(0)) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'No new funds available in contract. Pending payouts must be executed first or new subscriptions received.' 
+      }, { status: 400 });
     }
 
-    // Get all unsettled streams
+    // 4. Get all unsettled streams
     const unsettledStreams = await prisma.stream.findMany({
       where: { isSettled: false },
       include: { media: { select: { authorId: true } } }
@@ -37,24 +53,31 @@ export async function POST() {
 
     const totalStreams = unsettledStreams.length;
 
-    // Group streams by artist
+    // 5. Group streams by artist
     const artistStreams: { [key: string]: number } = {};
     unsettledStreams.forEach(stream => {
       const artistId = stream.media.authorId;
       artistStreams[artistId] = (artistStreams[artistId] || 0) + 1;
     });
 
-    // Calculate payouts and update balances
-    const settlements: any[] = [];
+    // 6. Calculate payouts using BigInt for precision
+    const settlements: {
+      artistId: string;
+      streamsCount: number;
+      payoutAmount: number;
+    }[] = [];
     for (const [artistId, streams] of Object.entries(artistStreams)) {
-      const payout = (streams / totalStreams) * totalPool;
-      if (payout > 0) {
-        // Update artist's royalty balance
+      // (streams / totalStreams) * availableWei
+      const payoutWei = (BigInt(streams) * availableWei) / BigInt(totalStreams);
+      const payoutEth = parseFloat(ethers.formatEther(payoutWei));
+      
+      if (payoutWei > BigInt(0)) {
+        // Update artist's royalty balance (DB tracking)
         await prisma.user.update({
           where: { id: artistId },
           data: {
             royaltyBalance: {
-              increment: payout
+              increment: payoutEth
             }
           }
         });
@@ -62,7 +85,7 @@ export async function POST() {
         settlements.push({
           artistId,
           streamsCount: streams,
-          payoutAmount: payout
+          payoutAmount: payoutEth
         });
       }
     }

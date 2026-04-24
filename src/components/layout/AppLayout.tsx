@@ -44,6 +44,13 @@ export default function AppLayout({
         {children}
       </div>
       <AudioPlayer />
+      <style jsx>{`
+        @media (max-width: 1024px) {
+          .main-content {
+            padding-top: 64px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

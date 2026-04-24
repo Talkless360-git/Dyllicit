@@ -1,4 +1,5 @@
 import prisma from '@/lib/db/prisma';
+export const dynamic = 'force-dynamic';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -7,8 +8,8 @@ import { Music } from 'lucide-react';
 export default async function AdminTracksPage() {
   const session = await getServerSession(authOptions);
   
-  if (!session || session.user?.role !== 'ADMIN') {
-    redirect('/explore');
+  if (!session || !session.user || session.user.role !== 'ADMIN') {
+    redirect('/admin/login');
   }
 
   const tracks = await prisma.media.findMany({

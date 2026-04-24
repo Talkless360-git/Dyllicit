@@ -5,7 +5,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import AppLayout from "@/components/layout/AppLayout";
 
 export const metadata: Metadata = {
-  title: "ChainStream — Blockchain Streaming Platform",
+  title: "Dyllicit — Blockchain Streaming Platform",
   description: "Web3 music and video streaming with NFT ownership and royalty distribution.",
 };
 

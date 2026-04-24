@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
 import { ethers } from 'ethers';
+import { authOptions } from '@/lib/auth';
+import { getServerSession } from 'next-auth/next';
 
 // This route returns all unpaid settlements grouped by artist for batch payout
 export async function GET() {
   try {
-    // Current logic: Find all settlements that haven't been 'paid' yet
-    // Since we don't have a 'isPaid' flag on ArtistSettlement yet, let's check the schema again
-    // We might need to add a flag or check if a transaction exists
-    
-    // For now, let's look for settlements that don't have a transaction hash recorded
-    // Wait, the schema doesn't have a txnHash on ArtistSettlement either.
-    // Let's check the schema again.
-    
+    const session = await getServerSession(authOptions);
+    if (!session || session.user?.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const pendingSettlements = await prisma.artistSettlement.findMany({
       where: {
         isPaid: false
@@ -29,7 +28,7 @@ export async function GET() {
     }
 
     // Group and prepare for contract call
-    const batch = pendingSettlements.reduce((acc: any, curr) => {
+    const batch = pendingSettlements.reduce((acc: Record<string, bigint>, curr) => {
       const address = curr.artist.payoutAddress || curr.artist.address;
       if (!address) return acc;
       
@@ -61,6 +60,11 @@ export async function GET() {
 // POST endpoint to mark settlements as paid after on-chain TX success
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user?.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { txHash, settlementIds } = await req.json();
 
     if (!txHash || !settlementIds || !Array.isArray(settlementIds)) {

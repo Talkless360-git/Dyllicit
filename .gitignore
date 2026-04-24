@@ -30,6 +30,19 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# hardhat
+artifacts/
+cache/
+typechain-types/
+
+# database
+prisma/*.db
+prisma/*.db-journal
+
+# scratch and logs
+scratch/
+*.txt
+
 # env files (can opt-in for committing if needed)
 .env*
 

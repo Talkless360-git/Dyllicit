@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/db/prisma";
 import { authOptions } from "@/lib/auth";
+import { ethers } from "ethers";
+import { getProvider } from "@/lib/blockchain/provider";
+import ChainStreamSubscription from "@/lib/blockchain/contracts/ChainStreamSubscription.json";
 
 export async function POST(req: Request) {
   try {
@@ -12,7 +15,7 @@ export async function POST(req: Request) {
 
     const { txnHash } = await req.json();
 
-    if (!txnHash) {
+    if (!txnHash || typeof txnHash !== 'string') {
       return NextResponse.json({ error: "Transaction hash required" }, { status: 400 });
     }
 
@@ -24,6 +27,54 @@ export async function POST(req: Request) {
     if (existing) {
       return NextResponse.json({ error: "Transaction already processed" }, { status: 400 });
     }
+
+    // ===== ON-CHAIN VERIFICATION =====
+    const provider = getProvider();
+    
+    // 1. Verify transaction exists and succeeded
+    const receipt = await (provider as any).getTransactionReceipt(txnHash);
+    if (!receipt) {
+      return NextResponse.json({ error: "Transaction not found on-chain" }, { status: 400 });
+    }
+    if (receipt.status !== 1) {
+      return NextResponse.json({ error: "Transaction failed on-chain" }, { status: 400 });
+    }
+
+    // 2. Verify it was sent to the correct subscription contract
+    const contractAddress = ChainStreamSubscription.address;
+    if (receipt.to?.toLowerCase() !== contractAddress.toLowerCase()) {
+      return NextResponse.json({ error: "Transaction was not sent to the subscription contract" }, { status: 400 });
+    }
+
+    // 3. Verify the Subscribed event was emitted for this user
+    const iface = new ethers.Interface(ChainStreamSubscription.abi);
+    const subscribedEvent = receipt.logs.find((log: any) => {
+      try {
+        const parsed = iface.parseLog({ topics: log.topics, data: log.data });
+        return parsed?.name === 'Subscribed';
+      } catch {
+        return false;
+      }
+    });
+
+    if (!subscribedEvent) {
+      return NextResponse.json({ error: "No subscription event found in transaction" }, { status: 400 });
+    }
+
+    // 4. Optionally verify the event was for this user's address
+    const userAddress = (session.user as any).address;
+    if (userAddress) {
+      try {
+        const parsed = iface.parseLog({ topics: subscribedEvent.topics, data: subscribedEvent.data });
+        const eventUser = parsed?.args?.[0]; // first indexed param = user address
+        if (eventUser && eventUser.toLowerCase() !== userAddress.toLowerCase()) {
+          return NextResponse.json({ error: "Transaction does not belong to your wallet" }, { status: 400 });
+        }
+      } catch {
+        // If parsing fails, still allow — the event existence check above is the main guard
+      }
+    }
+    // ===== END VERIFICATION =====
 
     const expireDate = new Date();
     expireDate.setDate(expireDate.getDate() + 30); // 30 days

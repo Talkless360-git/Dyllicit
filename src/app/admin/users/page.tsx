@@ -1,4 +1,5 @@
 import prisma from '@/lib/db/prisma';
+export const dynamic = 'force-dynamic';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -7,8 +8,8 @@ import UserDeleteButton from "@/components/admin/UserDeleteButton";
 export default async function AdminUsersPage() {
   const session = await getServerSession(authOptions);
   
-  if (!session || session.user?.role !== 'ADMIN') {
-    redirect('/explore');
+  if (!session || !session.user || session.user.role !== 'ADMIN') {
+    redirect('/admin/login');
   }
 
   const users = await prisma.user.findMany({
@@ -34,6 +35,7 @@ export default async function AdminUsersPage() {
               <th>Node ID</th>
               <th>Name</th>
               <th>Role</th>
+              <th>Wallet</th>
               <th>Uploaded Tracks</th>
               <th>Total Streams (Authored)</th>
               <th>Status</th>
@@ -46,9 +48,10 @@ export default async function AdminUsersPage() {
                 <td className="monospace">...{u.id.slice(-8)}</td>
                 <td>
                   <div className="user-name">{u.name || (u.email ? u.email.split("@")[0] : 'Unknown')}</div>
-                  <div className="user-email">{u.email || u.address || 'No identity'}</div>
+                  <div className="user-email">{u.email || 'No Email'}</div>
                 </td>
                 <td><span className={`role-badge ${u.role.toLowerCase()}`}>{u.role}</span></td>
+                <td className="monospace address-col">{u.address ? `${u.address.slice(0, 6)}...${u.address.slice(-4)}` : 'Not Linked'}</td>
                 <td>{u._count.media}</td>
                 <td>{u._count.streams}</td>
                 <td>
@@ -81,6 +84,7 @@ export default async function AdminUsersPage() {
         .role-badge { padding: 0.25rem 0.5rem; border-radius: 2rem; font-size: 0.75rem; font-weight: bold; background: rgba(255,255,255,0.1); }
         .role-badge.artist { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
         .role-badge.admin { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .address-col { color: var(--primary); font-size: 0.85rem; opacity: 0.8; }
       `}</style>
     </div>
   );

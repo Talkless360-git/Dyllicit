@@ -52,7 +52,7 @@ export const uploadToIPFS = async (file: File | Blob, fileName?: string) => {
       method: "POST",
       headers: {
         ...getHeaders(),
-      },
+      } as HeadersInit,
       body: formData,
     });
     
@@ -80,7 +80,7 @@ export const uploadJSONToIPFS = async (json: object, name: string = 'metadata.js
       headers: {
         'Content-Type': 'application/json',
         ...getHeaders(),
-      },
+      } as HeadersInit,
       body: JSON.stringify({
         pinataContent: json,
         pinataMetadata: {

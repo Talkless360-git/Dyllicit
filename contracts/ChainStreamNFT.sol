@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -20,7 +20,7 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
     constructor(address initialOwner) ERC1155("") Ownable(initialOwner) {}
 
     /**
-     * @dev Mint a new piece of content.
+     * @dev Mint a new piece of content. Reverts if token ID already exists.
      * @param account Creator address
      * @param id Token ID (generated on frontend/backend)
      * @param amount Number of copies (1 for unique, 100 for open edition)
@@ -33,7 +33,11 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
         uint256 amount,
         string memory uri,
         uint96 royaltyFee
-    ) public onlyOwner {
+    ) public {
+        require(!exists(id), "Token ID already exists");
+        require(account != address(0), "Cannot mint to zero address");
+        require(amount > 0, "Amount must be > 0");
+
         _mint(account, id, amount, "");
         _tokenURIs[id] = uri;
         
