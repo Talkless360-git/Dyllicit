@@ -169,10 +169,16 @@ const MintForm: React.FC = () => {
           errorMessage = "Insufficient funds for gas. Please get some testnet ETH.";
         } else if (innerError.message?.includes("user rejected") || innerError.code === "ACTION_REJECTED") {
           errorMessage = "Transaction rejected in MetaMask.";
-        } else if (innerError.message?.includes("onlyOwner")) {
+        } else if (innerError.message?.includes("onlyOwner") || (innerError.data && JSON.stringify(innerError.data).includes("onlyOwner"))) {
           errorMessage = "Only the contract owner can mint. Ensure you are using the deployer wallet.";
+        } else if (innerError.message?.includes("revert")) {
+          // Extract revert reason if possible
+          const match = innerError.message.match(/reverted with reason string ["'](.*?)["']/);
+          errorMessage = match ? `Contract Revert: ${match[1]}` : "Transaction reverted by the contract.";
         } else if (innerError.reason) {
           errorMessage = `Blockchain Error: ${innerError.reason}`;
+        } else if (innerError.error?.message) {
+          errorMessage = innerError.error.message;
         } else if (innerError.message) {
           // Truncate very long technical messages for the UI
           errorMessage = innerError.message.length > 100 

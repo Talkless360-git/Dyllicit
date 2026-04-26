@@ -21,7 +21,8 @@ export const getSigner = async () => {
           params: [{ chainId: `0x${expectedChainId.toString(16)}` }],
         });
       } catch (switchError: any) {
-        throw new Error(`Please switch your MetaMask network to Hardhat Local (Chain ID: ${expectedChainId})`);
+        const networkName = expectedChainId === BigInt(6343) ? "MegaETH Carrot" : "the required network";
+        throw new Error(`Please switch your MetaMask network to ${networkName} (Chain ID: ${expectedChainId})`);
       }
     }
     
