@@ -37,6 +37,12 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "test",
+    "tests",
+    "contracts",
+    "hardhat.config.*",
+    "scripts",
+    "ignition"
   ]
 }
