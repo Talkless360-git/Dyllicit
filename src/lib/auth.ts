@@ -48,13 +48,19 @@ export const authOptions: NextAuthOptions = {
             }
           });
 
+          // Check active subscription status
+          const subscription = await prisma.subscription.findFirst({
+            where: { userId: user.id, isActive: true, expiresAt: { gte: new Date() } }
+          });
+
           return {
             id: user.id,
             name: user.name || `${normalizedAddress.slice(0, 6)}...${normalizedAddress.slice(-4)}`,
             email: user.email,
             image: user.image,
             role: user.role,
-            address: user.address
+            address: user.address,
+            isSubscribed: !!subscription
           };
         } catch (e) {
           console.error("SIWE Authorization Error:", e);
@@ -85,7 +91,7 @@ export const authOptions: NextAuthOptions = {
               }
             });
           }
-          return { id: adminUser.id, name: adminUser.name, email: adminUser.email, role: 'ADMIN' };
+          return { id: adminUser.id, name: adminUser.name, email: adminUser.email, role: 'ADMIN', isSubscribed: false };
         }
         return null;
       }
