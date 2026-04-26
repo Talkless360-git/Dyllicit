@@ -15,7 +15,7 @@ export const verifyNFTOwnership = async (
     );
 
     const balance = await contract.balanceOf(userAddress, tokenId);
-    return balance > 0n;
+    return balance > BigInt(0);
   } catch (error) {
     console.error('Ownership verification error:', error);
     return false;
