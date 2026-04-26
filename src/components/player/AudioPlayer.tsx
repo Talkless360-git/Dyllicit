@@ -105,8 +105,8 @@ const AudioPlayer: React.FC = () => {
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!session) {
-      alert("Sign in to favorite songs!");
+    if (!session || !currentTrack) {
+      if (!session) alert("Sign in to favorite songs!");
       return;
     }
     try {
