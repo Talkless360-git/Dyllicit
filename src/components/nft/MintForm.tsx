@@ -159,14 +159,28 @@ const MintForm: React.FC = () => {
           throw new Error(`Sync Error: ${errorData.details || errorData.error || "Database synchronization failed."}`);
         }
       } catch (innerError: any) {
-        console.error("Internal Error:", innerError);
+        console.error("Detailed Minting Error:", innerError);
+        
+        let errorMessage = "Blockchain transaction failed. Check MetaMask.";
+        
         if (innerError.message?.includes("Sync Error:")) {
-           throw innerError; // Rethrow sync errors as-is
+           errorMessage = innerError.message;
+        } else if (innerError.message?.includes("insufficient funds")) {
+          errorMessage = "Insufficient funds for gas. Please get some testnet ETH.";
+        } else if (innerError.message?.includes("user rejected") || innerError.code === "ACTION_REJECTED") {
+          errorMessage = "Transaction rejected in MetaMask.";
+        } else if (innerError.message?.includes("onlyOwner")) {
+          errorMessage = "Only the contract owner can mint. Ensure you are using the deployer wallet.";
+        } else if (innerError.reason) {
+          errorMessage = `Blockchain Error: ${innerError.reason}`;
+        } else if (innerError.message) {
+          // Truncate very long technical messages for the UI
+          errorMessage = innerError.message.length > 100 
+            ? innerError.message.substring(0, 100) + "..." 
+            : innerError.message;
         }
-        if (innerError.message?.includes("onlyOwner")) {
-          throw new Error("Only the contract owner can mint. Ensure you are using Account #0.");
-        }
-        throw new Error("Blockchain transaction failed. Check MetaMask.");
+        
+        throw new Error(errorMessage);
       }
 
       setIsSuccess(true);
