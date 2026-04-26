@@ -59,7 +59,7 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             image: user.image,
             role: user.role,
-            address: user.address,
+            address: user.address ?? undefined,
             isSubscribed: !!subscription
           };
         } catch (e) {
