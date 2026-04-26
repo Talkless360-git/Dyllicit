@@ -41,6 +41,11 @@ const config: HardhatUserConfig = {
       accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
       chainId: 84532,
     },
+    'megaeth': {
+      url: 'https://carrot.megaeth.com/rpc',
+      accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 6343,
+    },
   },
   etherscan: {
     apiKey: {
