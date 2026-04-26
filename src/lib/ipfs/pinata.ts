@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const getHeaders = () => {
+const getHeaders = (): Record<string, string> => {
   const jwt = process.env.PINATA_JWT;
   const apiKey = process.env.PINATA_API_KEY;
   const apiSecret = process.env.PINATA_API_SECRET;
