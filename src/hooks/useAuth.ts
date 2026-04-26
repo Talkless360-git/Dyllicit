@@ -11,7 +11,7 @@ export function useAuth() {
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
-  const { setUser, setConnecting, logout: clearStore } = useAuthStore();
+  const { setUser, setConnecting, isConnecting, logout: clearStore } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
 
   const login = async () => {
@@ -73,5 +73,5 @@ export function useAuth() {
     // Also call a backend logout route if you want to clear the JWT cookie explicitly
   };
 
-  return { login, logout, error };
+  return { login, logout, error, isConnecting };
 }
