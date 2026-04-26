@@ -16,7 +16,9 @@ export const mintNFT = async (
       signer
     );
 
-    const tx = await contract.mint(to, tokenId, amount, uri, royaltyFee);
+    const tx = await contract.mint(to, tokenId, amount, uri, royaltyFee, {
+      gasLimit: 500000 // Ensure plenty of gas for minting
+    });
     const receipt = await tx.wait();
     
     return receipt;

@@ -58,8 +58,8 @@ const MintForm: React.FC = () => {
       let metadataUrl = '';
       let coverUrl = '';
       
-      // Generate a unique token ID for this mint
-      const tokenId = Math.floor(Date.now() / 1000).toString();
+      // Generate a unique token ID (Timestamp + Random to prevent collisions)
+      const tokenId = (BigInt(Date.now()) * BigInt(1000) + BigInt(Math.floor(Math.random() * 1000))).toString();
 
       // 1. Upload Cover Photo
       if (coverFile) {
@@ -174,7 +174,7 @@ const MintForm: React.FC = () => {
         } else if (innerError.message?.includes("revert")) {
           // Extract revert reason if possible
           const match = innerError.message.match(/reverted with reason string ["'](.*?)["']/);
-          errorMessage = match ? `Contract Revert: ${match[1]}` : "Transaction reverted by the contract.";
+          errorMessage = match ? `Contract Revert: ${match[1]}` : `Contract Revert (No reason). Raw: ${innerError.message.substring(0, 50)}...`;
         } else if (innerError.reason) {
           errorMessage = `Blockchain Error: ${innerError.reason}`;
         } else if (innerError.error?.message) {
