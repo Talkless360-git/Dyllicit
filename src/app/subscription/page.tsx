@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import { CheckCircle, Loader2, Zap, Shield, Download, Music, Star, ArrowRight } from "lucide-react";
 import SubscriptionABI from "@/lib/blockchain/contracts/ChainStreamSubscription.json";
 import { useRouter } from "next/navigation";
-import { parseEther } from "viem";
+import { parseEther, formatEther } from "viem";
 
 export default function SubscriptionPage() {
   const { data: session, update } = useSession();
@@ -18,18 +18,31 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [fee, setFee] = useState("0.01");
 
-  // Check backend subscription status and fetch fee
+  // Read live price from blockchain
+  const { data: onChainPrice } = useReadContract({
+    address: SubscriptionABI.address as `0x${string}`,
+    abi: SubscriptionABI.abi,
+    functionName: 'subscriptionPrice',
+  });
+
   useEffect(() => {
-    Promise.all([
-      fetch("/api/subscription").then(res => res.json()),
-      fetch("/api/settings").then(res => res.json())
-    ]).then(([subData, settingsData]) => {
-      setSubscribed(subData.subscribed);
-      if (settingsData.settings?.subscriptionFee) {
-        setFee(settingsData.settings.subscriptionFee.toString());
-      }
-      setLoading(false);
-    });
+    if (onChainPrice) {
+      setFee(formatEther(onChainPrice as bigint));
+    }
+  }, [onChainPrice]);
+
+  // Check backend subscription status
+  useEffect(() => {
+    fetch("/api/subscription")
+      .then(res => res.json())
+      .then(subData => {
+        setSubscribed(subData.subscribed);
+        setLoading(false);
+      })
+      .catch(e => {
+        console.error("Failed to fetch subscription status:", e);
+        setLoading(false);
+      });
   }, []);
 
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
