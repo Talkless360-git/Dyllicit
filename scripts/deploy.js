@@ -7,9 +7,11 @@ async function main() {
 
   console.log("Deploying contracts with the account:", deployer.address);
 
+  const trustedForwarder = ethers.ZeroAddress; // Replace with actual forwarder address in production
+  
   // Deploy ChainStreamNFT
   const ChainStreamNFT = await ethers.getContractFactory("ChainStreamNFT");
-  const nft = await ChainStreamNFT.deploy(deployer.address);
+  const nft = await ChainStreamNFT.deploy(deployer.address, trustedForwarder);
 
   await nft.waitForDeployment();
 
@@ -18,7 +20,7 @@ async function main() {
 
   // Deploy Subscription Contract
   const ChainStreamSubscription = await ethers.getContractFactory("ChainStreamSubscription");
-  const subscription = await ChainStreamSubscription.deploy();
+  const subscription = await ChainStreamSubscription.deploy(trustedForwarder);
   await subscription.waitForDeployment();
   const subAddress = await subscription.getAddress();
   console.log("ChainStreamSubscription deployed to:", subAddress);

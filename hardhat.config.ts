@@ -6,7 +6,7 @@ dotenv.config();
 
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || "";
 
-const config: HardhatUserConfig = {
+const config: any = {
   solidity: {
     version: "0.8.24",
     settings: {

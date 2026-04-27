@@ -3,8 +3,9 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 
-contract ChainStreamSubscription is Ownable, ReentrancyGuard {
+contract ChainStreamSubscription is Ownable, ReentrancyGuard, ERC2771Context {
     uint256 public subscriptionPrice = 0.01 ether;
     uint256 public subscriptionDuration = 30 days;
     uint256 public platformFeeBps = 250; // 2.5%
@@ -20,7 +21,7 @@ contract ChainStreamSubscription is Ownable, ReentrancyGuard {
     event RoyaltyPaid(address indexed artist, uint256 amount);
     event RoyaltiesBatchCompleted(uint256 totalArtists, uint256 totalAmount);
 
-    constructor() Ownable(msg.sender) {}
+    constructor(address trustedForwarder) Ownable(_msgSender()) ERC2771Context(trustedForwarder) {}
 
     /**
      * @dev Update subscription price. Must be > 0.
@@ -58,13 +59,13 @@ contract ChainStreamSubscription is Ownable, ReentrancyGuard {
         require(msg.value == subscriptionPrice, "Exact payment required");
 
         // Effects — update state BEFORE external calls
-        if (subscriberExpirations[msg.sender] < block.timestamp) {
-            subscriberExpirations[msg.sender] = block.timestamp + subscriptionDuration;
+        if (subscriberExpirations[_msgSender()] < block.timestamp) {
+            subscriberExpirations[_msgSender()] = block.timestamp + subscriptionDuration;
         } else {
-            subscriberExpirations[msg.sender] += subscriptionDuration;
+            subscriberExpirations[_msgSender()] += subscriptionDuration;
         }
 
-        emit Subscribed(msg.sender, subscriberExpirations[msg.sender], msg.value);
+        emit Subscribed(_msgSender(), subscriberExpirations[_msgSender()], msg.value);
 
         // Interactions — external call LAST
         uint256 platformCut = (msg.value * platformFeeBps) / 10000;
@@ -125,4 +126,16 @@ contract ChainStreamSubscription is Ownable, ReentrancyGuard {
      * @dev Allow direct deposits to top up the royalty pool.
      */
     receive() external payable {}
+
+    function _msgSender() internal view override(Context, ERC2771Context) returns (address) {
+        return ERC2771Context._msgSender();
+    }
+
+    function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
+    }
 }

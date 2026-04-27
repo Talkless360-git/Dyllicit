@@ -16,15 +16,20 @@ export default function SubscriptionPage() {
   
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fee, setFee] = useState("0.01");
 
-  // Check backend subscription status
+  // Check backend subscription status and fetch fee
   useEffect(() => {
-    fetch("/api/subscription")
-      .then(res => res.json())
-      .then(data => {
-        setSubscribed(data.subscribed);
-        setLoading(false);
-      });
+    Promise.all([
+      fetch("/api/subscription").then(res => res.json()),
+      fetch("/api/settings").then(res => res.json())
+    ]).then(([subData, settingsData]) => {
+      setSubscribed(subData.subscribed);
+      if (settingsData.settings?.subscriptionFee) {
+        setFee(settingsData.settings.subscriptionFee.toString());
+      }
+      setLoading(false);
+    });
   }, []);
 
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
@@ -56,7 +61,7 @@ export default function SubscriptionPage() {
         address: SubscriptionABI.address as `0x${string}`,
         abi: SubscriptionABI.abi,
         functionName: 'subscribe',
-        value: parseEther("0.01"),
+        value: parseEther(fee),
       });
     } catch (err) {
       console.error(err);
@@ -124,7 +129,7 @@ export default function SubscriptionPage() {
             <div className="tier-info">
               <h3>Monthly Pass</h3>
               <div className="price">
-                <span className="amount">0.01 ETH</span>
+                <span className="amount">{fee} ETH</span>
                 <span className="period">/ month</span>
               </div>
             </div>

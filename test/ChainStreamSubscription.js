@@ -6,7 +6,7 @@ describe("ChainStreamSubscription", function () {
   async function deployFixture() {
     const [owner, subscriber, artist1, artist2, attacker] = await ethers.getSigners();
     const Factory = await ethers.getContractFactory("ChainStreamSubscription");
-    const contract = await Factory.deploy();
+    const contract = await Factory.deploy(ethers.ZeroAddress);
     return { contract, owner, subscriber, artist1, artist2, attacker };
   }
 

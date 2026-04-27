@@ -131,6 +131,7 @@ model GlobalSettings {
   id            String    @id @default("global")
   platformFee   Float     @default(2.5) // Percentage
   defaultRoyalty Float    @default(5.0) // Percentage
+  subscriptionFee Float   @default(0.01) // in ETH
   updatedAt     DateTime  @updatedAt
 }
 

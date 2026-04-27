@@ -6,18 +6,19 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 
 /**
  * @title ChainStreamNFT
  * @dev ERC1155 token for music/video streaming content with EIP-2981 Royalties.
  */
-contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2981 {
+contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2981, ERC2771Context {
     
     mapping(uint256 => string) private _tokenURIs;
     
     event NFTMinted(address indexed creator, uint256 tokenId, uint256 amount, string uri);
 
-    constructor(address initialOwner) ERC1155("") Ownable(initialOwner) {}
+    constructor(address initialOwner, address trustedForwarder) ERC1155("") Ownable(initialOwner) ERC2771Context(trustedForwarder) {}
 
     /**
      * @dev Mint a new piece of content. Reverts if token ID already exists.
@@ -74,5 +75,17 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    function _msgSender() internal view override(Context, ERC2771Context) returns (address) {
+        return ERC2771Context._msgSender();
+    }
+
+    function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
     }
 }

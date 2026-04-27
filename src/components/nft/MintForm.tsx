@@ -12,7 +12,6 @@ const MintForm: React.FC = () => {
     description: '',
     type: 'audio',
     genre: '',
-    royalty: 5,
     isGated: false,
     isAlbum: false,
     albumTitle: '',
@@ -21,8 +20,21 @@ const MintForm: React.FC = () => {
     scheduledRelease: ''
   });
   
+  const [defaultRoyalty, setDefaultRoyalty] = useState(5);
   const [file, setFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+
+  // Fetch global settings for royalty
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.settings?.defaultRoyalty) {
+          setDefaultRoyalty(data.settings.defaultRoyalty);
+        }
+      })
+      .catch(err => console.error("Failed to fetch settings:", err));
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [isMinting, setIsMinting] = useState(false);
@@ -125,7 +137,7 @@ const MintForm: React.FC = () => {
       try {
         const signer = await getSigner();
         const address = await signer.getAddress();
-        await mintNFT(signer, address, tokenId, 1, metadataUrl, formData.royalty * 100);
+        await mintNFT(signer, address, tokenId, 1, metadataUrl, defaultRoyalty * 100);
         
         // 5. Sync with Database
         const syncRes = await fetch('/api/nft/sync', {
@@ -329,13 +341,10 @@ const MintForm: React.FC = () => {
         </div>
 
         <div className="form-group">
-          <label>Creator Royalties (%)</label>
-          <input 
-            type="number" 
-            min="0" max="20" 
-            value={formData.royalty}
-            onChange={(e) => setFormData({...formData, royalty: parseInt(e.target.value)})}
-          />
+          <label>Platform Standards</label>
+          <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '0.5rem', fontSize: '0.9rem' }}>
+            Royalty set by Admin: <strong>{defaultRoyalty}%</strong>
+          </div>
         </div>
 
         <div className="form-group full-width">

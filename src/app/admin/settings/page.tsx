@@ -2,10 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import Button from '@/components/ui/Button';
-import { Save, Loader2, Percent } from 'lucide-react';
+import { Save, Loader2, Percent, Share2 } from 'lucide-react';
+import { useWriteContract, useAccount } from 'wagmi';
+import { parseEther } from 'viem';
+import SubscriptionABI from "@/lib/blockchain/contracts/ChainStreamSubscription.json";
 
 export default function AdminSettingsPage() {
-  const [formData, setFormData] = useState({ platformFee: 2.5, defaultRoyalty: 5.0 });
+  const [formData, setFormData] = useState({ platformFee: 2.5, defaultRoyalty: 5.0, subscriptionFee: 0.01 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -14,7 +17,11 @@ export default function AdminSettingsPage() {
       .then(r => r.json())
       .then(d => {
         if (d.settings) {
-          setFormData({ platformFee: d.settings.platformFee, defaultRoyalty: d.settings.defaultRoyalty });
+          setFormData({ 
+            platformFee: d.settings.platformFee, 
+            defaultRoyalty: d.settings.defaultRoyalty,
+            subscriptionFee: d.settings.subscriptionFee || 0.01
+          });
         }
         setLoading(false);
       });
@@ -28,12 +35,50 @@ export default function AdminSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      alert('Global settings updated successfully!');
+      alert('Global settings updated in database successfully!');
     } catch (e) {
       console.error(e);
       alert('Failed to update settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const { isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncOnChain = async () => {
+    if (!isConnected) {
+      alert("Please connect your admin wallet first.");
+      return;
+    }
+    setSyncing(true);
+    try {
+      // 1. Sync Price
+      await writeContractAsync({
+        address: SubscriptionABI.address as `0x${string}`,
+        abi: SubscriptionABI.abi,
+        functionName: 'setPrice',
+        args: [parseEther(formData.subscriptionFee.toString())],
+      });
+
+      // 2. Sync Platform Fee (bps)
+      // platformFee is % (e.g. 2.5), contract expects bps (e.g. 250)
+      const bps = Math.round(formData.platformFee * 100);
+      await writeContractAsync({
+        address: SubscriptionABI.address as `0x${string}`,
+        abi: SubscriptionABI.abi,
+        functionName: 'setPlatformFee',
+        args: [BigInt(bps)],
+      });
+
+      alert('Smart contract updated successfully! Please wait for transactions to confirm.');
+    } catch (e: any) {
+      console.error(e);
+      alert(`On-chain sync failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -62,6 +107,20 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="form-group">
+          <label>Monthly Subscription Fee (ETH)</label>
+          <div className="input-with-icon">
+            <input 
+              type="number" 
+              step="0.001" 
+              value={formData.subscriptionFee}
+              onChange={(e) => setFormData({...formData, subscriptionFee: parseFloat(e.target.value)})}
+            />
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', paddingRight: '0.5rem' }}>ETH</span>
+          </div>
+          <p className="hint">The price users pay to unlock premium features and support artists.</p>
+        </div>
+
+        <div className="form-group">
           <label>Default Creator Royalty (%)</label>
           <div className="input-with-icon">
             <input 
@@ -75,12 +134,21 @@ export default function AdminSettingsPage() {
           <p className="hint">The default royalty pool allocated to creators for streaming their content.</p>
         </div>
 
-        <div style={{ marginTop: '2rem' }}>
+        <div className="button-group" style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem' }}>
           <Button variant="primary" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {saving ? 'Synchronizing to Node...' : 'Commit Settings to Protocol'}
+            {saving ? 'Saving...' : 'Update Database'}
+          </Button>
+          
+          <Button variant="secondary" onClick={handleSyncOnChain} disabled={syncing}>
+            {syncing ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
+            {syncing ? 'Broadcasting...' : 'Sync to Blockchain'}
           </Button>
         </div>
+        
+        <p style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.5 }}>
+          <strong>Note:</strong> "Update Database" affects the UI and metadata. "Sync to Blockchain" updates the actual enforcement rules on the smart contract.
+        </p>
       </div>
 
       <style jsx>{`

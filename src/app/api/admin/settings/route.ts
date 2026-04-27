@@ -20,12 +20,12 @@ export async function PUT(req: Request) {
   if (!session || session.user?.role !== 'ADMIN') return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { platformFee, defaultRoyalty } = body;
+  const { platformFee, defaultRoyalty, subscriptionFee } = body;
 
   const settings = await prisma.globalSettings.upsert({
     where: { id: "global" },
-    update: { platformFee, defaultRoyalty },
-    create: { id: "global", platformFee, defaultRoyalty }
+    update: { platformFee, defaultRoyalty, subscriptionFee },
+    create: { id: "global", platformFee, defaultRoyalty, subscriptionFee }
   });
 
   return NextResponse.json({ success: true, settings });
