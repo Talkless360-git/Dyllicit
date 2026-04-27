@@ -16,9 +16,21 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
     
     mapping(uint256 => string) private _tokenURIs;
     
+    uint96 public globalRoyaltyBps = 500; // Default 5%
+    
     event NFTMinted(address indexed creator, uint256 tokenId, uint256 amount, string uri);
+    event GlobalRoyaltyUpdated(uint96 newBps);
 
     constructor(address initialOwner, address trustedForwarder) ERC1155("") Ownable(initialOwner) ERC2771Context(trustedForwarder) {}
+
+    /**
+     * @dev Sets the global royalty fee for all future mints. Max 10% (1000 bps).
+     */
+    function setGlobalRoyalty(uint96 _bps) external onlyOwner {
+        require(_bps <= 1000, "Royalty too high");
+        globalRoyaltyBps = _bps;
+        emit GlobalRoyaltyUpdated(_bps);
+    }
 
     /**
      * @dev Mint a new piece of content. Reverts if token ID already exists.
@@ -26,7 +38,7 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
      * @param id Token ID (generated on frontend/backend)
      * @param amount Number of copies (1 for unique, 100 for open edition)
      * @param uri Metadata URI (IPFS)
-     * @param royaltyFee Fixed royalty fee in basis points (e.g. 500 = 5%)
+     * @param royaltyFee Fixed royalty fee in basis points. If 0, uses global default.
      */
     function mint(
         address account,
@@ -42,8 +54,10 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
         _mint(account, id, amount, "");
         _tokenURIs[id] = uri;
         
-        if (royaltyFee > 0) {
-            _setTokenRoyalty(id, account, royaltyFee);
+        uint96 appliedRoyalty = royaltyFee > 0 ? royaltyFee : globalRoyaltyBps;
+        
+        if (appliedRoyalty > 0) {
+            _setTokenRoyalty(id, account, appliedRoyalty);
         }
         
         emit NFTMinted(account, id, amount, uri);

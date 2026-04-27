@@ -2,54 +2,49 @@
 
 import React, { useEffect, useState } from 'react';
 import Button from '@/components/ui/Button';
-import { Save, Loader2, Percent, Share2 } from 'lucide-react';
-import { useWriteContract, useAccount } from 'wagmi';
-import { parseEther } from 'viem';
+import { Loader2, Percent, Share2 } from 'lucide-react';
+import { useWriteContract, useAccount, useReadContract } from 'wagmi';
+import { parseEther, formatEther } from 'viem';
 import SubscriptionABI from "@/lib/blockchain/contracts/ChainStreamSubscription.json";
+import NFTABI from "@/lib/blockchain/contracts/ChainStreamNFT.json";
 
 export default function AdminSettingsPage() {
   const [formData, setFormData] = useState({ platformFee: 2.5, defaultRoyalty: 5.0, subscriptionFee: 0.01 });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  // Read from blockchain
+  const { data: onChainPrice } = useReadContract({
+    address: SubscriptionABI.address as `0x${string}`,
+    abi: SubscriptionABI.abi,
+    functionName: 'subscriptionPrice',
+  });
+
+  const { data: onChainPlatformFee } = useReadContract({
+    address: SubscriptionABI.address as `0x${string}`,
+    abi: SubscriptionABI.abi,
+    functionName: 'platformFeeBps',
+  });
+
+  const { data: onChainRoyalty } = useReadContract({
+    address: NFTABI.address as `0x${string}`,
+    abi: NFTABI.abi,
+    functionName: 'globalRoyaltyBps',
+  });
 
   useEffect(() => {
-    fetch('/api/admin/settings')
-      .then(async r => {
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-      })
-      .then(d => {
-        if (d.settings) {
-          setFormData({ 
-            platformFee: d.settings.platformFee || 2.5, 
-            defaultRoyalty: d.settings.defaultRoyalty || 5.0,
-            subscriptionFee: d.settings.subscriptionFee || 0.01
-          });
-        }
-        setLoading(false);
-      })
-      .catch(e => {
-        console.error("Failed to load settings:", e);
-        setLoading(false); // Fallback to defaults
+    if (onChainPrice !== undefined && onChainPlatformFee !== undefined && onChainRoyalty !== undefined) {
+      setFormData({
+        subscriptionFee: parseFloat(formatEther(onChainPrice as bigint)),
+        platformFee: Number(onChainPlatformFee) / 100, // bps to %
+        defaultRoyalty: Number(onChainRoyalty) / 100, // bps to %
       });
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      alert('Global settings updated in database successfully!');
-    } catch (e) {
-      console.error(e);
-      alert('Failed to update settings');
-    } finally {
-      setSaving(false);
+      setLoading(false);
+    } else {
+      // Fallback timeout in case of network issue
+      const timer = setTimeout(() => setLoading(false), 3000);
+      return () => clearTimeout(timer);
     }
-  };
+  }, [onChainPrice, onChainPlatformFee, onChainRoyalty]);
 
   const { isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -71,16 +66,24 @@ export default function AdminSettingsPage() {
       });
 
       // 2. Sync Platform Fee (bps)
-      // platformFee is % (e.g. 2.5), contract expects bps (e.g. 250)
-      const bps = Math.round(formData.platformFee * 100);
+      const platformBps = Math.round(formData.platformFee * 100);
       await writeContractAsync({
         address: SubscriptionABI.address as `0x${string}`,
         abi: SubscriptionABI.abi,
         functionName: 'setPlatformFee',
-        args: [BigInt(bps)],
+        args: [BigInt(platformBps)],
       });
 
-      alert('Smart contract updated successfully! Please wait for transactions to confirm.');
+      // 3. Sync Default Royalty (bps)
+      const royaltyBps = Math.round(formData.defaultRoyalty * 100);
+      await writeContractAsync({
+        address: NFTABI.address as `0x${string}`,
+        abi: NFTABI.abi,
+        functionName: 'setGlobalRoyalty',
+        args: [BigInt(royaltyBps)],
+      });
+
+      alert('All Smart contracts updated successfully!');
     } catch (e: any) {
       console.error(e);
       alert(`On-chain sync failed: ${e.message || 'Unknown error'}`);
@@ -142,19 +145,14 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="button-group" style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem' }}>
-          <Button variant="primary" onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {saving ? 'Saving...' : 'Update Database'}
-          </Button>
-          
-          <Button variant="secondary" onClick={handleSyncOnChain} disabled={syncing}>
+          <Button variant="primary" onClick={handleSyncOnChain} disabled={syncing}>
             {syncing ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
-            {syncing ? 'Broadcasting...' : 'Sync to Blockchain'}
+            {syncing ? 'Broadcasting...' : 'Update Smart Contracts'}
           </Button>
         </div>
         
         <p style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.5 }}>
-          <strong>Note:</strong> "Update Database" affects the UI and metadata. "Sync to Blockchain" updates the actual enforcement rules on the smart contract.
+          <strong>Note:</strong> All platform settings are now fully decentralized and stored directly on the blockchain. You will need to sign 3 transactions.
         </p>
       </div>
 

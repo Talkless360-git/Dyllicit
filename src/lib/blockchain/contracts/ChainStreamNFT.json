@@ -1,5 +1,5 @@
 {
-  "address": "0x718Aae9AB161F6c6b2A7b2aC82FaEba10d7EA1Ec",
+  "address": "0x4D4fe176bDb88B46d310e7927a3BC7fC334E7C1B",
   "abi": [
     {
       "type": "constructor",
@@ -200,6 +200,18 @@
         {
           "type": "bool",
           "name": "approved",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "GlobalRoyaltyUpdated",
+      "inputs": [
+        {
+          "type": "uint96",
+          "name": "newBps",
           "indexed": false
         }
       ]
@@ -436,6 +448,20 @@
     },
     {
       "type": "function",
+      "name": "globalRoyaltyBps",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "uint96",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
       "name": "isApprovedForAll",
       "constant": true,
       "stateMutability": "view",
@@ -625,6 +651,19 @@
         {
           "type": "bool",
           "name": "approved"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "setGlobalRoyalty",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint96",
+          "name": "_bps"
         }
       ],
       "outputs": []

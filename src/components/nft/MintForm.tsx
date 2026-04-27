@@ -5,6 +5,8 @@ import Button from '@/components/ui/Button';
 import { Upload, Music, Film, CheckCircle, Loader2 } from 'lucide-react';
 import { mintNFT } from '@/lib/blockchain/mint';
 import { getSigner } from '@/lib/blockchain/provider';
+import { useReadContract } from 'wagmi';
+import NFTABI from "@/lib/blockchain/contracts/ChainStreamNFT.json";
 
 const MintForm: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -24,17 +26,18 @@ const MintForm: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
 
-  // Fetch global settings for royalty
+  // Fetch global settings for royalty from blockchain
+  const { data: onChainRoyalty } = useReadContract({
+    address: NFTABI.address as `0x${string}`,
+    abi: NFTABI.abi,
+    functionName: 'globalRoyaltyBps',
+  });
+
   useEffect(() => {
-    fetch('/api/settings')
-      .then(res => res.json())
-      .then(data => {
-        if (data.settings?.defaultRoyalty) {
-          setDefaultRoyalty(data.settings.defaultRoyalty);
-        }
-      })
-      .catch(err => console.error("Failed to fetch settings:", err));
-  }, []);
+    if (onChainRoyalty !== undefined) {
+      setDefaultRoyalty(Number(onChainRoyalty) / 100);
+    }
+  }, [onChainRoyalty]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [isMinting, setIsMinting] = useState(false);
