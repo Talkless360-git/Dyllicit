@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import ContentCard from '@/components/ui/ContentCard';
-import { Search, Filter, LayoutGrid, List } from 'lucide-react';
+import { Search, Filter, LayoutGrid, List, Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 
