@@ -1,11 +1,16 @@
 {
-  "address": "0xD94D7149b5C6Ef908e4d3F410EE7e442A7e36F44",
+  "address": "0x942DCe6E2015782176324c1DaeDaf226e94Af869",
   "abi": [
     {
       "type": "constructor",
       "stateMutability": "undefined",
       "payable": false,
-      "inputs": []
+      "inputs": [
+        {
+          "type": "address",
+          "name": "trustedForwarder"
+        }
+      ]
     },
     {
       "type": "error",
@@ -193,6 +198,25 @@
     },
     {
       "type": "function",
+      "name": "isTrustedForwarder",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "forwarder"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "bool",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
       "name": "owner",
       "constant": true,
       "stateMutability": "view",
@@ -351,6 +375,20 @@
         }
       ],
       "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "trustedForwarder",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
     },
     {
       "type": "function",
