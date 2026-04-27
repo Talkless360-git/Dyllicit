@@ -14,16 +14,23 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     fetch('/api/admin/settings')
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      })
       .then(d => {
         if (d.settings) {
           setFormData({ 
-            platformFee: d.settings.platformFee, 
-            defaultRoyalty: d.settings.defaultRoyalty,
+            platformFee: d.settings.platformFee || 2.5, 
+            defaultRoyalty: d.settings.defaultRoyalty || 5.0,
             subscriptionFee: d.settings.subscriptionFee || 0.01
           });
         }
         setLoading(false);
+      })
+      .catch(e => {
+        console.error("Failed to load settings:", e);
+        setLoading(false); // Fallback to defaults
       });
   }, []);
 
