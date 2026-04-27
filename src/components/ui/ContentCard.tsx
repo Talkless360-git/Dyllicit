@@ -281,8 +281,4 @@ const ContentCard: React.FC<ContentCardProps> = ({
   );
 };
 
-    </div>
-  );
-};
-
 export default ContentCard;

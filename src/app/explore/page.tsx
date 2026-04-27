@@ -420,7 +420,3 @@ export default function ExplorePage() {
     </div>
   );
 }
-
-    </div>
-  );
-}
