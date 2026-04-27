@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Button from '@/components/ui/Button';
 import { Upload, Music, Film, CheckCircle, Loader2 } from 'lucide-react';
 import { mintNFT } from '@/lib/blockchain/mint';
