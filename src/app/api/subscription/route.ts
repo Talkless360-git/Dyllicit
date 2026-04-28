@@ -76,8 +76,16 @@ export async function POST(req: Request) {
     }
     // ===== END VERIFICATION =====
 
+    // 5. Get actual expiration date from event or duration setting
     const expireDate = new Date();
-    expireDate.setDate(expireDate.getDate() + 30); // 30 days
+    try {
+      const contract = new ethers.Contract(contractAddress, ChainStreamSubscription.abi, provider);
+      const durationSeconds = await contract.subscriptionDuration();
+      expireDate.setSeconds(expireDate.getSeconds() + Number(durationSeconds));
+    } catch (e) {
+      console.warn("Failed to read on-chain duration, falling back to 30 days:", e);
+      expireDate.setDate(expireDate.getDate() + 30);
+    }
 
     const subscription = await prisma.subscription.create({
       data: {
