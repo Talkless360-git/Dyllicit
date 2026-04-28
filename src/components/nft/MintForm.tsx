@@ -19,7 +19,8 @@ const MintForm: React.FC = () => {
     albumTitle: '',
     producer: '',
     releaseYear: new Date().getFullYear(),
-    scheduledRelease: ''
+    scheduledRelease: '',
+    price: 0
   });
   
   const [defaultRoyalty, setDefaultRoyalty] = useState(5);
@@ -140,7 +141,7 @@ const MintForm: React.FC = () => {
       try {
         const signer = await getSigner();
         const address = await signer.getAddress();
-        await mintNFT(signer, address, tokenId, 1, metadataUrl, defaultRoyalty * 100);
+        await mintNFT(signer, address, tokenId, 1, metadataUrl, defaultRoyalty * 100, formData.price);
         
         // 5. Sync with Database
         const syncRes = await fetch('/api/nft/sync', {
@@ -159,7 +160,8 @@ const MintForm: React.FC = () => {
               producer: formData.producer,
               releaseYear: formData.releaseYear,
               scheduledRelease: formData.scheduledRelease ? new Date(formData.scheduledRelease).toISOString() : null,
-              album: formData.isAlbum ? formData.albumTitle : null
+              album: formData.isAlbum ? formData.albumTitle : null,
+              price: formData.price
             },
             nftData: {
               tokenId,
@@ -341,6 +343,21 @@ const MintForm: React.FC = () => {
             <option value="audio">Audio Track</option>
             <option value="video">Video Montage</option>
           </select>
+        </div>
+
+        <div className="form-group">
+          <label>Collection Price (ETH)</label>
+          <div className="input-with-icon">
+            <input 
+              type="number" 
+              step="0.0001" 
+              placeholder="e.g. 0.005"
+              value={formData.price}
+              onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value) || 0})}
+            />
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', paddingRight: '0.5rem' }}>ETH</span>
+          </div>
+          <p className="hint">Price fans pay to permanently own an NFT copy.</p>
         </div>
 
         <div className="form-group">

@@ -5,12 +5,14 @@ import Link from "next/link";
 import { PlayCircle, Lock } from "lucide-react";
 import MediaInteractions from "@/components/media/MediaInteractions";
 import DownloadButton from "@/components/media/DownloadButton";
+import CollectButton from "@/components/media/CollectButton";
 
 export default async function MediaDetailsPage({ params }: { params: { id: string } }) {
   const media = await prisma.media.findUnique({
     where: { id: params.id },
     include: {
       author: true,
+      nft: true,
       _count: {
         select: { likes: true, comments: true }
       }
@@ -43,6 +45,13 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
           </div>
 
           <div className="action-buttons">
+             {media.price && media.price > 0 && media.nft && (
+               <CollectButton 
+                 mediaId={media.id} 
+                 tokenId={media.nft.tokenId} 
+                 price={media.price} 
+               />
+             )}
              <DownloadButton trackUrl={media.url} />
           </div>
         </div>

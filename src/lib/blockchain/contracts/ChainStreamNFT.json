@@ -1,5 +1,5 @@
 {
-  "address": "0x4D4fe176bDb88B46d310e7927a3BC7fC334E7C1B",
+  "address": "0x95f1e4E3fAA6A1ba619c04d7189f70D2dc89a90A",
   "abi": [
     {
       "type": "constructor",
@@ -219,6 +219,23 @@
     {
       "type": "event",
       "anonymous": false,
+      "name": "MintPriceUpdated",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "price",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
       "name": "NFTMinted",
       "inputs": [
         {
@@ -239,6 +256,28 @@
         {
           "type": "string",
           "name": "uri",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "NFTPurchased",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "buyer",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "price",
           "indexed": false
         }
       ]
@@ -527,9 +566,32 @@
         {
           "type": "uint96",
           "name": "royaltyFee"
+        },
+        {
+          "type": "uint256",
+          "name": "price"
         }
       ],
       "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "mintPrices",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
     },
     {
       "type": "function",
@@ -544,6 +606,20 @@
           "name": ""
         }
       ]
+    },
+    {
+      "type": "function",
+      "name": "purchase",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "id"
+        }
+      ],
+      "outputs": []
     },
     {
       "type": "function",
@@ -670,6 +746,23 @@
     },
     {
       "type": "function",
+      "name": "setMintPrice",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "id"
+        },
+        {
+          "type": "uint256",
+          "name": "price"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
       "name": "setURI",
       "constant": false,
       "payable": false,
@@ -700,6 +793,25 @@
       "outputs": [
         {
           "type": "bool",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "tokenCreators",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "address",
           "name": ""
         }
       ]

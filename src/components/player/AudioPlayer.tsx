@@ -12,6 +12,9 @@ import {
 import { useRouter } from 'next/navigation';
 import { getIPFSUrl } from '@/lib/ipfs/utils';
 
+import { useReadContract } from 'wagmi';
+import NFTABI from "@/lib/blockchain/contracts/ChainStreamNFT.json";
+
 const AudioPlayer: React.FC = () => {
   const { data: session } = useSession();
   const router = useRouter();
@@ -35,8 +38,20 @@ const AudioPlayer: React.FC = () => {
   const [localTime, setLocalTime] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   
+  // Check NFT Ownership on MegaETH
+  const { data: nftBalance } = useReadContract({
+    address: NFTABI.address as `0x${string}`,
+    abi: NFTABI.abi,
+    functionName: 'balanceOf',
+    args: [session?.user?.address as `0x${string}`, BigInt(currentTrack?.tokenId || 0)],
+    query: {
+      enabled: !!session?.user?.address && !!currentTrack?.tokenId
+    }
+  });
+
+  const isOwner = Number(nftBalance || 0) > 0;
   const isAuthor = !!session?.user?.id && !!currentTrack?.authorId && session.user.id === currentTrack.authorId;
-  const isGated = !isSubscriber && !isAuthor;
+  const isGated = !isSubscriber && !isAuthor && !isOwner;
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);

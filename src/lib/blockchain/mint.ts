@@ -7,7 +7,8 @@ export const mintNFT = async (
   tokenId: string,
   amount: number,
   uri: string,
-  royaltyFee: number = 500 // default 5%
+  royaltyFee: number = 500, // default 5%
+  price: number = 0 // default free
 ) => {
   try {
     const contract = new ethers.Contract(
@@ -16,9 +17,17 @@ export const mintNFT = async (
       signer
     );
 
-    const tx = await contract.mint(to, tokenId, amount, uri, Math.floor(royaltyFee), {
-      gasLimit: 500000 // Ensure plenty of gas for minting
-    });
+    const tx = await contract.mint(
+      to, 
+      tokenId, 
+      amount, 
+      uri, 
+      Math.floor(royaltyFee), 
+      ethers.parseEther(price.toString()),
+      {
+        gasLimit: 500000 
+      }
+    );
     const receipt = await tx.wait();
     
     return receipt;
