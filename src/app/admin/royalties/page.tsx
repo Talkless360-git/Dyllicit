@@ -42,6 +42,7 @@ interface ArtistSettlement {
 interface RoyaltyStats {
   contractBalance: string;
   platformEarnings: string;
+  platformFeePercent: string;
   lastSettlementDate: string | null;
   pendingSettlementsCount: number;
   isDue: boolean;
@@ -194,7 +195,7 @@ export default function RoyaltiesPage() {
         <div className="stat-card glass">
           <div className="stat-icon" style={{ color: '#10b981', background: 'rgba(16,185,129,0.1)' }}><Wallet /></div>
           <div className="stat-content">
-            <span className="label">Platform Earnings (2.5%)</span>
+            <span className="label">Platform Earnings ({stats?.platformFeePercent || '2.5'}%)</span>
             <span className="value">{stats?.platformEarnings} ETH</span>
           </div>
         </div>

@@ -48,15 +48,33 @@ export async function GET() {
       ? (new Date().getTime() - new Date(lastSettlement.processedAt).getTime()) > 30 * 24 * 60 * 60 * 1000
       : true;
 
-    // 6. Calculate total platform earnings (2.5% of 0.01 ETH per subscription)
-    const totalSubscriptions = await prisma.subscription.count();
-    const platformEarningsEth = (totalSubscriptions * 0.01 * 0.025).toFixed(5);
+    // 6. Calculate total platform earnings based on on-chain settings
+    const contract = new ethers.Contract(contractAddress, ChainStreamSubscription.abi, provider);
+    let platformEarningsEth = "0.0";
+    let platformFeePercent = "2.5";
+    try {
+      const priceWei = await contract.subscriptionPrice();
+      const feeBps = await contract.platformFeeBps();
+      const totalSubscriptions = await prisma.subscription.count();
+      
+      const priceEth = parseFloat(ethers.formatEther(priceWei));
+      platformFeePercent = (Number(feeBps) / 100).toFixed(1);
+      const feeMultiplier = Number(feeBps) / 10000;
+      
+      platformEarningsEth = (totalSubscriptions * priceEth * feeMultiplier).toFixed(5);
+    } catch (e) {
+      console.warn("Failed to calculate platform earnings from on-chain data:", e);
+      // Fallback to basic count if contract read fails
+      const totalSubscriptions = await prisma.subscription.count();
+      platformEarningsEth = (totalSubscriptions * 0.01 * 0.025).toFixed(5);
+    }
 
     return NextResponse.json({
       success: true,
       stats: {
         contractBalance: balanceEth,
         platformEarnings: platformEarningsEth,
+        platformFeePercent,
         lastSettlementDate: lastSettlement?.processedAt,
         pendingSettlementsCount,
         isDue,
