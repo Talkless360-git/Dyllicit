@@ -113,10 +113,16 @@ export default function AdminTransactions() {
                         </div>
                       </td>
                       <td className="wallet-cell">
-                        <code>{sub.user.address.slice(0, 8)}...{sub.user.address.slice(-6)}</code>
-                        <a href={`https://sepolia.basescan.org/address/${sub.user.address}`} target="_blank" rel="noreferrer">
-                          <ExternalLink size={12} />
-                        </a>
+                        <code>
+                          {sub.user?.address 
+                            ? `${sub.user.address.slice(0, 8)}...${sub.user.address.slice(-6)}` 
+                            : 'No Address'}
+                        </code>
+                        {sub.user?.address && (
+                          <a href={`https://sepolia.basescan.org/address/${sub.user.address}`} target="_blank" rel="noreferrer">
+                            <ExternalLink size={12} />
+                          </a>
+                        )}
                       </td>
                       <td>
                         <span className="badge tier-badge">{sub.tier.toUpperCase()}</span>
@@ -124,7 +130,7 @@ export default function AdminTransactions() {
                       <td className="hash-cell">
                         {sub.txnHash ? (
                           <a href={`https://sepolia.basescan.org/tx/${sub.txnHash}`} target="_blank" rel="noreferrer" className="hash-link">
-                            {sub.txnHash.slice(0, 10)}...
+                            {sub.txnHash.length > 10 ? `${sub.txnHash.slice(0, 10)}...` : sub.txnHash}
                             <ArrowUpRight size={14} />
                           </a>
                         ) : (
@@ -168,10 +174,16 @@ export default function AdminTransactions() {
                         </div>
                       </td>
                       <td className="wallet-cell">
-                        <code>{rd.artist.address.slice(0, 8)}...{rd.artist.address.slice(-6)}</code>
-                        <a href={`https://sepolia.basescan.org/address/${rd.artist.address}`} target="_blank" rel="noreferrer">
-                          <ExternalLink size={12} />
-                        </a>
+                        <code>
+                          {rd.artist?.address 
+                            ? `${rd.artist.address.slice(0, 8)}...${rd.artist.address.slice(-6)}` 
+                            : 'No Address'}
+                        </code>
+                        {rd.artist?.address && (
+                          <a href={`https://sepolia.basescan.org/address/${rd.artist.address}`} target="_blank" rel="noreferrer">
+                            <ExternalLink size={12} />
+                          </a>
+                        )}
                       </td>
                       <td className="streams-cell">
                         <Music size={14} className="icon" />

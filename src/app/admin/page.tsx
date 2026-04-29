@@ -103,10 +103,12 @@ export default function AdminDashboard() {
             {stats?.recentTransactions.map((tx) => (
               <div key={tx.id} className="tx-item">
                 <div className="tx-info">
-                  <span className="tx-type">{tx.type.toUpperCase()}</span>
-                  <span className="tx-user">{tx.user.address.slice(0, 6)}...{tx.user.address.slice(-4)}</span>
+                  <span className="tx-type">{tx.type?.toUpperCase() || 'TX'}</span>
+                  <span className="tx-user">
+                    {tx.user?.address ? `${tx.user.address.slice(0, 6)}...${tx.user.address.slice(-4)}` : 'No Address'}
+                  </span>
                 </div>
-                <span className="tx-date">{new Date(tx.createdAt).toLocaleDateString()}</span>
+                <span className="tx-date">{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : 'N/A'}</span>
               </div>
             ))}
             {(!stats?.recentTransactions || stats.recentTransactions.length === 0) && (
