@@ -16,10 +16,11 @@ interface ContentCardProps {
   type: 'audio' | 'video';
   layout?: 'grid' | 'list';
   onPlay?: (track: any) => void;
+  tokenId?: string;
 }
 
 const ContentCard: React.FC<ContentCardProps> = ({ 
-  id, title, artist, authorId, thumbnailUrl, url, isGated: originalIsGated, type, layout = 'grid', onPlay
+  id, title, artist, authorId, thumbnailUrl, url, isGated: originalIsGated, type, layout = 'grid', onPlay, tokenId
 }) => {
   const { data: session } = useSession();
   const { setCurrentTrack } = usePlayerStore();
@@ -28,8 +29,8 @@ const ContentCard: React.FC<ContentCardProps> = ({
   const isSubscriber = session?.user?.isSubscribed;
   const isAuthor = !!session?.user?.id && !!authorId && session.user.id === authorId;
   
-  // All tracks are gated unless the user is a subscriber or the author
-  const effectiveIsGated = !isSubscriber && !isAuthor;
+  // All tracks are gated unless the user is a subscriber, the author, or owns the NFT (indicated by presence of url)
+  const effectiveIsGated = !isSubscriber && !isAuthor && !url;
 
   const handlePlay = () => {
     if (effectiveIsGated && !url) {
@@ -39,7 +40,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
     const track = { 
       id, title, artist, authorId, 
       url: url || '', thumbnailUrl: safeThumbnail, 
-      type, isGated: effectiveIsGated 
+      type, isGated: effectiveIsGated, tokenId
     };
     if (onPlay) {
       onPlay(track);
@@ -78,7 +79,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
 
       <style jsx>{`
         .content-card {
-           border-radius: 1.5rem;
+           border-radius: 1rem;
            overflow: hidden;
            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
            display: flex;
@@ -130,9 +131,9 @@ const ContentCard: React.FC<ContentCardProps> = ({
         }
 
         .list .card-image-wrap {
-           width: 70px;
-           height: 70px;
-           border-radius: 1rem;
+           width: 60px;
+           height: 60px;
+           border-radius: 0.5rem;
         }
 
         :global(.main-image) {
@@ -205,7 +206,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
         }
 
         .card-info {
-           padding: 1.5rem;
+           padding: 1rem;
            flex: 1;
            display: flex;
            flex-direction: column;
@@ -229,9 +230,9 @@ const ContentCard: React.FC<ContentCardProps> = ({
         .track-title {
            color: white;
            text-decoration: none;
-           font-size: 1.25rem;
-           font-weight: 700;
-           margin-bottom: 0.35rem;
+           font-size: 0.95rem;
+           font-weight: 600;
+           margin-bottom: 0.15rem;
            display: block;
            white-space: nowrap;
            overflow: hidden;
@@ -248,7 +249,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
         }
 
         .artist-name {
-           font-size: 0.95rem;
+           font-size: 0.85rem;
            opacity: 0.5;
            font-weight: 500;
         }

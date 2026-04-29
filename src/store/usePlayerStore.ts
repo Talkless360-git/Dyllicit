@@ -9,6 +9,7 @@ interface Track {
   thumbnailUrl?: string;
   type: 'audio' | 'video';
   isGated: boolean;
+  tokenId?: string;
 }
 
 interface PlayerState {

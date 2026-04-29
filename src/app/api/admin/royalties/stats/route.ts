@@ -48,25 +48,18 @@ export async function GET() {
       ? (new Date().getTime() - new Date(lastSettlement.processedAt).getTime()) > 30 * 24 * 60 * 60 * 1000
       : true;
 
-    // 6. Calculate total platform earnings based on on-chain settings
-    const contract = new ethers.Contract(contractAddress, ChainStreamSubscription.abi, provider);
+    // 6. Calculate total platform earnings based on Database Settings
+    const settings = await prisma.globalSettings.findFirst() || { platformFee: 2.5, subscriptionFee: 0.01 };
     let platformEarningsEth = "0.0";
-    let platformFeePercent = "2.5";
+    let platformFeePercent = settings.platformFee.toFixed(1);
+
     try {
-      const priceWei = await contract.subscriptionPrice();
-      const feeBps = await contract.platformFeeBps();
       const totalSubscriptions = await prisma.subscription.count();
-      
-      const priceEth = parseFloat(ethers.formatEther(priceWei));
-      platformFeePercent = (Number(feeBps) / 100).toFixed(1);
-      const feeMultiplier = Number(feeBps) / 10000;
-      
-      platformEarningsEth = (totalSubscriptions * priceEth * feeMultiplier).toFixed(5);
+      const feeMultiplier = settings.platformFee / 100;
+      platformEarningsEth = (totalSubscriptions * settings.subscriptionFee * feeMultiplier).toFixed(5);
     } catch (e) {
-      console.warn("Failed to calculate platform earnings from on-chain data:", e);
-      // Fallback to basic count if contract read fails
-      const totalSubscriptions = await prisma.subscription.count();
-      platformEarningsEth = (totalSubscriptions * 0.01 * 0.025).toFixed(5);
+      console.warn("Failed to calculate platform earnings:", e);
+      platformEarningsEth = "0.00000";
     }
 
     return NextResponse.json({

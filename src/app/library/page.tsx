@@ -210,8 +210,8 @@ export default function LibraryPage() {
         }
         .grid-container {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 2.5rem;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 1.5rem;
         }
         .list-container {
           display: flex;

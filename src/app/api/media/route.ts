@@ -19,7 +19,9 @@ export async function GET(req: Request) {
         author: {
           select: { name: true, address: true, id: true }
         },
-        nft: true,
+        nfts: {
+          where: { userId: session?.user?.id || 'none' }
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -28,7 +30,8 @@ export async function GET(req: Request) {
     const securedMedia = mediaList.map(item => {
       const isAuthorized = 
         item.authorId === session?.user?.id || 
-        session?.user?.isSubscribed === true;
+        session?.user?.isSubscribed === true ||
+        item.nfts.length > 0;
 
       return {
         ...item,

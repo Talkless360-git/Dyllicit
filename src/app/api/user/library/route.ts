@@ -64,10 +64,13 @@ export async function GET(req: Request) {
       })
       .slice(0, 20);
 
-    const redactMedia = (media: any) => ({
-      ...media,
-      url: (media.authorId === userId || session.user.isSubscribed) ? media.url : null
-    });
+    const redactMedia = (media: any) => {
+      const isOwned = ownedMedia.some(m => m.id === media.id);
+      return {
+        ...media,
+        url: (media.authorId === userId || session.user.isSubscribed || isOwned) ? media.url : null
+      };
+    };
 
     return NextResponse.json({
       owned: ownedMedia.map(redactMedia),

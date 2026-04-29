@@ -31,14 +31,16 @@ export async function POST(req: Request) {
       const media = await tx.media.create({
         data: {
           ...mediaData,
+          tokenId: nftData.tokenId,
+          contractAddr: nftData.contractAddr,
+          metadataUrl: nftData.metadataUrl,
           authorId: user.id
         }
       });
 
-      console.log(`[Sync] Creating NFT record for Media: ${media.id}`);
+      console.log(`[Sync] Creating Initial Ownership record for Media: ${media.id}`);
       const nft = await tx.nFT.create({
         data: {
-          ...nftData,
           mediaId: media.id,
           userId: user.id,
           ownerAddress: normalizedAddress

@@ -61,10 +61,15 @@ model Media {
   price         Float?    // Price in ETH for the NFT
   playCount     Int       @default(0)
   
+  // NFT Metadata (Common for all copies)
+  tokenId       String?   @unique
+  contractAddr  String?
+  metadataUrl   String?
+  
   authorId      String
   author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   
-  nft           NFT?
+  nfts          NFT[]
   playlistItems PlaylistItem[]
   streams       Stream[]
   comments      Comment[]
@@ -74,18 +79,17 @@ model Media {
 
 model NFT {
   id            String    @id @default(cuid())
-  tokenId       String?   @unique
-  contractAddr  String?
-  metadataUrl   String?
   ownerAddress  String
   
-  mediaId       String    @unique
+  mediaId       String
   media         Media     @relation(fields: [mediaId], references: [id])
   
   userId        String
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   createdAt     DateTime  @default(now())
+
+  @@unique([userId, mediaId])
 }
 
 model Playlist {

@@ -15,6 +15,8 @@
     "@openzeppelin/contracts": "^5.6.1",
     "@prisma/client": "^6.19.3",
     "@prisma/config": "^7.7.0",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.105.1",
     "@tanstack/react-query": "^5.25.0",
     "@vercel/postgres": "^0.10.0",
     "cookie": "^0.6.0",

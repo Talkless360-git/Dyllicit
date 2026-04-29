@@ -6,13 +6,19 @@ import { PlayCircle, Lock } from "lucide-react";
 import MediaInteractions from "@/components/media/MediaInteractions";
 import DownloadButton from "@/components/media/DownloadButton";
 import CollectButton from "@/components/media/CollectButton";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export default async function MediaDetailsPage({ params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  
   const media = await prisma.media.findUnique({
     where: { id: params.id },
     include: {
       author: true,
-      nft: true,
+      nfts: {
+        where: { userId: session?.user?.id || 'none' }
+      },
       _count: {
         select: { likes: true, comments: true }
       }
@@ -20,6 +26,8 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
   });
 
   if (!media) return notFound();
+
+  const isOwned = media.nfts.length > 0;
 
   return (
     <div style={{ padding: "6rem 2rem", maxWidth: "1200px", margin: "0 auto", color: "white" }}>
@@ -45,13 +53,14 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
           </div>
 
           <div className="action-buttons">
-             {media.price && media.price > 0 && media.nft && (
-               <CollectButton 
-                 mediaId={media.id} 
-                 tokenId={media.nft.tokenId} 
-                 price={media.price} 
-               />
-             )}
+              {media.price && media.price > 0 && media.tokenId && (
+                <CollectButton 
+                  mediaId={media.id} 
+                  tokenId={media.tokenId as string} 
+                  price={media.price} 
+                  isOwned={isOwned}
+                />
+              )}
              <DownloadButton trackUrl={media.url} />
           </div>
         </div>

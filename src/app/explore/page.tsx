@@ -58,7 +58,8 @@ export default function ExplorePage() {
       url: item.url,
       thumbnailUrl: item.thumbnailUrl,
       isGated: item.isGated,
-      type: item.type
+      type: item.type,
+      tokenId: item.nft?.tokenId
     }));
     setQueue(queueTracks);
   };
@@ -140,6 +141,7 @@ export default function ExplorePage() {
               thumbnailUrl={item.thumbnailUrl}
               isGated={item.isGated}
               type={item.type}
+              tokenId={item.nft?.tokenId}
               layout={viewMode}
               onPlay={handlePlayTrack}
             />

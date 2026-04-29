@@ -13,9 +13,10 @@ interface CollectButtonProps {
   mediaId: string;
   tokenId: string;
   price: number;
+  isOwned?: boolean;
 }
 
-export default function CollectButton({ mediaId, tokenId, price }: CollectButtonProps) {
+export default function CollectButton({ mediaId, tokenId, price, isOwned = false }: CollectButtonProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const { isConnected, address } = useAccount();
@@ -50,8 +51,8 @@ export default function CollectButton({ mediaId, tokenId, price }: CollectButton
       // Update local state
       setSuccess(true);
       
-      // We could also call an API here to refresh the user's library
-      await fetch('/api/library/sync', {
+      // Sync collection with database
+      await fetch('/api/nft/collect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokenId, ownerAddress: address })
@@ -65,11 +66,11 @@ export default function CollectButton({ mediaId, tokenId, price }: CollectButton
     }
   };
 
-  if (success) {
+  if (success || isOwned) {
     return (
-      <div className="collect-success glass animate-fade-in" style={{ padding: '0.75rem 1.5rem', borderRadius: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', border: '1px solid var(--success)', background: 'rgba(16, 185, 129, 0.1)' }}>
+      <div className="collect-success glass animate-fade-in" style={{ padding: '0.75rem 1.5rem', borderRadius: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', border: '1px solid var(--success)', background: 'rgba(16, 185, 129, 0.1)', minWidth: '200px', justifyContent: 'center' }}>
         <CheckCircle size={20} color="#10b981" />
-        <span style={{ fontWeight: 'bold', color: '#10b981' }}>Collected!</span>
+        <span style={{ fontWeight: 'bold', color: '#10b981' }}>{isOwned ? 'Owned' : 'Collected!'}</span>
       </div>
     );
   }
