@@ -101,34 +101,34 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account, profile }) {
+      console.log("SignIn Attempt:", { id: user.id, email: user.email, provider: account?.provider });
+      
       const cookieStore = cookies();
       const pendingRole = cookieStore.get("dyllicit_pending_role")?.value;
       
       if (pendingRole && (pendingRole === "LISTENER" || pendingRole === "ARTIST") && user.id) {
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
-        
-        // Don't downgrade admins
-        if (dbUser?.role === 'ADMIN') {
-          try {
-            cookieStore.delete("dyllicit_pending_role");
-          } catch(e) {}
-          return true;
-        }
-
-        const isNewUser = dbUser && (Date.now() - new Date(dbUser.createdAt).getTime() < 60000);
-
-        if (isNewUser) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { role: pendingRole }
-          });
-          (user as any).role = pendingRole;
-        }
-
         try {
-           cookieStore.delete("dyllicit_pending_role");
-        } catch(e) {}
+          const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+          
+          if (dbUser?.role === 'ADMIN') {
+            cookieStore.delete("dyllicit_pending_role");
+            return true;
+          }
+
+          // If it's a very new user or doesn't have a role, set it
+          if (!dbUser || !dbUser.role || (Date.now() - new Date(dbUser.createdAt).getTime() < 60000)) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { role: pendingRole }
+            });
+            (user as any).role = pendingRole;
+          }
+
+          cookieStore.delete("dyllicit_pending_role");
+        } catch(e) {
+          console.error("SignIn Callback Error:", e);
+        }
       }
       return true;
     },
