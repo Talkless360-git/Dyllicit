@@ -20,12 +20,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     }
 
     // Delete Media
-    // Note: Due to relation constraints, ensure cascading deletes or handle manually
-    // In schema.prisma, NFT has no onDelete: Cascade for mediaId. So we delete NFT first:
-    const nft = await prisma.nFT.findUnique({ where: { mediaId: params.id }});
-    if (nft) {
-       await prisma.nFT.delete({ where: { id: nft.id }});
-    }
+    // Note: Due to relation constraints, we delete NFTs associated with this media first
+    await prisma.nFT.deleteMany({ where: { mediaId: params.id } });
 
     await prisma.media.delete({ where: { id: params.id } });
     
