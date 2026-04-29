@@ -48,25 +48,26 @@ export async function GET() {
       ? (new Date().getTime() - new Date(lastSettlement.processedAt).getTime()) > 30 * 24 * 60 * 60 * 1000
       : true;
 
-    // 6. Calculate total platform earnings based on Database Settings
+    // 6. Calculate platform share and royalty pool based on Actual Balance
     const settings = await prisma.globalSettings.findFirst() || { platformFee: 2.5, subscriptionFee: 0.01 };
-    let platformEarningsEth = "0.0";
-    let platformFeePercent = settings.platformFee.toFixed(1);
-
-    try {
-      const totalSubscriptions = await prisma.subscription.count();
-      const feeMultiplier = settings.platformFee / 100;
-      platformEarningsEth = (totalSubscriptions * settings.subscriptionFee * feeMultiplier).toFixed(5);
-    } catch (e) {
-      console.warn("Failed to calculate platform earnings:", e);
-      platformEarningsEth = "0.00000";
-    }
+    const platformFeePercent = settings.platformFee.toFixed(1);
+    
+    // The current contract balance is the "Total Pool"
+    const currentBalanceNum = parseFloat(balanceEth);
+    const feeMultiplier = settings.platformFee / 100;
+    
+    // Platform Share of the current balance
+    const platformShare = (currentBalanceNum * feeMultiplier).toFixed(5);
+    
+    // The rest is for the artists
+    const royaltyPool = (currentBalanceNum * (1 - feeMultiplier)).toFixed(5);
 
     return NextResponse.json({
       success: true,
       stats: {
-        contractBalance: balanceEth,
-        platformEarnings: platformEarningsEth,
+        contractBalance: royaltyPool, // Display the artist share as the "Pool Balance"
+        platformEarnings: platformShare,
+        totalBalance: balanceEth, // Keep raw balance for reference
         platformFeePercent,
         lastSettlementDate: lastSettlement?.processedAt,
         pendingSettlementsCount,
