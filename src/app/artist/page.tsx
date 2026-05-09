@@ -12,6 +12,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
+import { formatEther } from 'viem';
 import ChainStreamSubscriptionABI from '@/lib/blockchain/contracts/ChainStreamSubscription.json';
 
 interface ArtistStats {
