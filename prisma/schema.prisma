@@ -59,6 +59,8 @@ model Media {
   album         String?
   isGated       Boolean   @default(false)
   price         Float?    // Price in ETH for the NFT
+  totalShares   Int       @default(1)
+  fractionalRoyalty Float   @default(0) // % of artist earnings given to holders
   playCount     Int       @default(0)
   
   // NFT Metadata (Common for all copies)
@@ -80,6 +82,7 @@ model Media {
 model NFT {
   id            String    @id @default(cuid())
   ownerAddress  String
+  quantity      Int       @default(1)
   
   mediaId       String
   media         Media     @relation(fields: [mediaId], references: [id])
@@ -95,6 +98,8 @@ model NFT {
 model Playlist {
   id            String    @id @default(cuid())
   title         String
+  description   String?
+  isPublic      Boolean   @default(true)
   userId        String
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   items         PlaylistItem[]
@@ -125,7 +130,7 @@ model Stream {
   userId        String?
   user          User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   mediaId       String
-  media         Media     @relation(fields: [mediaId], references: [id])
+  media         Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   duration      Int       // seconds played
   isSettled     Boolean   @default(false)
   timestamp     DateTime  @default(now())
@@ -134,6 +139,7 @@ model Stream {
 model GlobalSettings {
   id            String    @id @default("global")
   platformFee   Float     @default(2.5) // Percentage
+  platformMintingFee Float  @default(0)    // in ETH
   defaultRoyalty Float    @default(5.0) // Percentage
   subscriptionFee Float   @default(0.01) // in ETH
   updatedAt     DateTime  @updatedAt
@@ -233,10 +239,11 @@ model ArtistSettlement {
   royaltySettlement RoyaltySettlement @relation(fields: [royaltySettlementId], references: [id], onDelete: Cascade)
   artistId          String
   artist            User      @relation(fields: [artistId], references: [id])
-  streamsCount      Int       // Streams by this artist in this settlement
-  payoutAmount      Float     // Amount paid to this artist
+  tokenId           String?   // Token ID for fractional royalty split
+  streamsCount      Int       // Streams for this specific token/artist
+  payoutAmount      Float     // Amount paid to this artist/token pool
   isPaid            Boolean   @default(false)
   createdAt         DateTime  @default(now())
 
-  @@unique([royaltySettlementId, artistId])
+  @@unique([royaltySettlementId, artistId, tokenId])
 }
