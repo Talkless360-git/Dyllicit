@@ -67,7 +67,7 @@ export default function ArtistContent() {
               <th>Type</th>
               <th>Genre</th>
               <th>Streams</th>
-              <th>Fractions Left</th>
+              <th>Shares Sold</th>
               <th>Sales Revenue</th>
               <th>Release Date</th>
               <th>Actions</th>
@@ -88,8 +88,8 @@ export default function ArtistContent() {
                 <td>{item.playCount}</td>
                 <td>
                   {item.totalShares > 1 ? (
-                    <span style={{ fontWeight: 'bold', color: item.sharesLeft === 0 ? '#ef4444' : '#10b981' }}>
-                      {item.sharesLeft !== undefined ? item.sharesLeft : item.totalShares} / {item.totalShares}
+                    <span style={{ fontWeight: 'bold', color: '#10b981' }}>
+                      {item.sharesLeft !== undefined ? (item.totalShares - item.sharesLeft) : 0} / {item.totalShares}
                     </span>
                   ) : (
                     <span style={{ opacity: 0.5 }}>1 / 1 (Single)</span>
