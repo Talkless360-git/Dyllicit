@@ -4,6 +4,7 @@ import React from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import AudioPlayer from '@/components/player/AudioPlayer';
+import PlaylistModal from '@/components/playlist/PlaylistModal';
 
 /**
  * AppLayout Component
@@ -44,6 +45,7 @@ export default function AppLayout({
         {children}
       </div>
       <AudioPlayer />
+      <PlaylistModal />
       <style jsx>{`
         @media (max-width: 1024px) {
           .main-content {

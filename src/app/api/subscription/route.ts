@@ -30,20 +30,36 @@ export async function POST(req: Request) {
 
     // ===== ON-CHAIN VERIFICATION =====
     const provider = getProvider();
-    
-    // 1. Verify transaction exists and succeeded
-    const receipt = await (provider as any).getTransactionReceipt(txnHash);
-    if (!receipt) {
-      return NextResponse.json({ error: "Transaction not found on-chain" }, { status: 400 });
+    if (!provider) {
+      console.error("Backend provider not available");
+      return NextResponse.json({ error: "Blockchain connectivity error" }, { status: 500 });
     }
+    
+    // 1. Verify transaction exists and succeeded (with a small retry loop)
+    console.log(`Verifying subscription transaction: ${txnHash}`);
+    let receipt = await (provider as any).getTransactionReceipt(txnHash);
+    
+    if (!receipt) {
+      console.log("Receipt not found immediately, waiting 2 seconds...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      receipt = await (provider as any).getTransactionReceipt(txnHash);
+    }
+
+    if (!receipt) {
+      console.error(`Transaction not found after retry: ${txnHash}`);
+      return NextResponse.json({ error: "Transaction not yet indexed. Please try refreshing in a moment." }, { status: 400 });
+    }
+
     if (receipt.status !== 1) {
-      return NextResponse.json({ error: "Transaction failed on-chain" }, { status: 400 });
+      console.error(`Transaction failed on-chain: ${txnHash}`);
+      return NextResponse.json({ error: "Blockchain transaction failed. Please check your wallet history." }, { status: 400 });
     }
 
     // 2. Verify it was sent to the correct subscription contract
     const contractAddress = ChainStreamSubscription.address;
     if (receipt.to?.toLowerCase() !== contractAddress.toLowerCase()) {
-      return NextResponse.json({ error: "Transaction was not sent to the subscription contract" }, { status: 400 });
+      console.error(`Invalid contract recipient: ${receipt.to} vs ${contractAddress}`);
+      return NextResponse.json({ error: "Invalid transaction recipient." }, { status: 400 });
     }
 
     // 3. Verify the Subscribed event was emitted for this user

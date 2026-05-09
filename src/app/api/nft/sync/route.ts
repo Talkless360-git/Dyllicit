@@ -43,7 +43,8 @@ export async function POST(req: Request) {
         data: {
           mediaId: media.id,
           userId: user.id,
-          ownerAddress: normalizedAddress
+          ownerAddress: normalizedAddress,
+          quantity: mediaData.totalShares || 1
         }
       });
 

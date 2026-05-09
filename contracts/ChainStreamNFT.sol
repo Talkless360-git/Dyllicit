@@ -19,11 +19,15 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
     mapping(uint256 => address) public tokenCreators;
     
     uint96 public globalRoyaltyBps = 500; // Default 5%
+    uint256 public platformMintingFee = 0; // Fee in Wei paid per mint
     
-    event NFTMinted(address indexed creator, uint256 tokenId, uint256 amount, string uri);
-    event NFTPurchased(address indexed buyer, uint256 tokenId, uint256 price);
+    event NFTMinted(address indexed creator, uint256 indexed tokenId, uint256 amount, string uri, uint256 feePaid);
+    event NFTPurchased(address indexed buyer, uint256 indexed tokenId, uint256 price, uint256 adminCut);
+    event PlatformFeeCollected(address indexed from, uint256 amount, string feeType);
+    event FeesWithdrawn(address indexed admin, uint256 amount);
     event GlobalRoyaltyUpdated(uint96 newBps);
     event MintPriceUpdated(uint256 tokenId, uint256 price);
+    event PlatformMintingFeeUpdated(uint256 newFee);
 
     constructor(address initialOwner, address trustedForwarder) ERC1155("") Ownable(initialOwner) ERC2771Context(trustedForwarder) {}
 
@@ -38,13 +42,29 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
         emit GlobalRoyaltyUpdated(_bps);
     }
 
-    /**
-     * @dev Sets the mint price for a specific token ID. Only creator can set.
-     */
     function setMintPrice(uint256 id, uint256 price) external {
         require(tokenCreators[id] == msg.sender || owner() == msg.sender, "Not authorized");
         mintPrices[id] = price;
         emit MintPriceUpdated(id, price);
+    }
+
+    /**
+     * @dev Sets the platform minting fee. Only owner can set.
+     */
+    function setPlatformMintingFee(uint256 _fee) external onlyOwner {
+        platformMintingFee = _fee;
+        emit PlatformMintingFeeUpdated(_fee);
+    }
+
+    /**
+     * @dev Withdraws collected platform fees. Only owner can call.
+     */
+    function withdrawFees() external onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No fees to withdraw");
+        (bool success, ) = payable(owner()).call{value: balance}("");
+        require(success, "Withdrawal failed");
+        emit FeesWithdrawn(owner(), balance);
     }
 
     /**
@@ -63,10 +83,11 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
         string memory uri,
         uint96 royaltyFee,
         uint256 price
-    ) public {
+    ) public payable {
         require(!exists(id), "Token ID already exists");
         require(account != address(0), "Cannot mint to zero address");
         require(amount > 0, "Amount must be > 0");
+        require(msg.value >= platformMintingFee, "Insufficient minting fee");
 
         _mint(account, id, amount, "");
         _tokenURIs[id] = uri;
@@ -79,7 +100,11 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
             _setTokenRoyalty(id, account, appliedRoyalty);
         }
         
-        emit NFTMinted(account, id, amount, uri);
+        if (msg.value > 0) {
+            emit PlatformFeeCollected(msg.sender, msg.value, "MINT");
+        }
+        
+        emit NFTMinted(account, id, amount, uri, msg.value);
         if (price > 0) emit MintPriceUpdated(id, price);
     }
 
@@ -95,19 +120,31 @@ contract ChainStreamNFT is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC
 
         address creator = tokenCreators[id];
         
-        // Handle Payment Split (97% to Creator, 3% to Admin/Owner by default)
-        // We use a fixed 3% for simplicity here, matching platform fee intent
-        uint256 adminCut = (msg.value * 300) / 10000;
-        uint256 creatorShare = msg.value - adminCut;
+        // Handle Payment Split (97% to Creator, 3% kept in contract for Admin)
+        uint256 adminCut = (price * 300) / 10000;
+        uint256 creatorShare = price - adminCut;
 
-        (bool s1, ) = payable(owner()).call{value: adminCut}("");
         (bool s2, ) = payable(creator).call{value: creatorShare}("");
-        require(s1 && s2, "Transfer failed");
+        require(s2, "Transfer to creator failed");
 
-        // Mint 1 copy to the buyer
-        _mint(msg.sender, id, 1, "");
+        // Check if artist has shares left
+        require(balanceOf(creator, id) >= 1, "Sold out");
+
+        // Refund excess ETH
+        if (msg.value > price) {
+            (bool s3, ) = payable(msg.sender).call{value: msg.value - price}("");
+            require(s3, "Refund failed");
+        }
+
+        // Transfer 1 copy from the creator to the buyer
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+        _update(creator, msg.sender, ids, amounts);
         
-        emit NFTPurchased(msg.sender, id, msg.value);
+        emit NFTPurchased(msg.sender, id, price, adminCut);
+        emit PlatformFeeCollected(msg.sender, adminCut, "SALE");
     }
 
     function uri(uint256 tokenId) public view override returns (string memory) {

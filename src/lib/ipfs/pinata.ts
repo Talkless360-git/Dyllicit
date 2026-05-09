@@ -7,14 +7,14 @@ const getHeaders = (): Record<string, string> => {
 
   if (jwt) {
     return {
-      Authorization: `Bearer ${jwt}`,
+      'Authorization': `Bearer ${jwt}`,
     };
   }
 
   if (apiKey && apiSecret) {
     return {
-      pinata_api_key: apiKey,
-      pinata_secret_api_key: apiSecret,
+      'pinata_api_key': apiKey,
+      'pinata_secret_api_key': apiSecret,
     };
   }
 

@@ -16,18 +16,18 @@ export async function POST() {
 
     const artistId = session.user.id;
 
-    // Get artist's current balance
     const artist = await prisma.user.findUnique({
       where: { id: artistId },
-      select: { royaltyBalance: true, payoutAddress: true, totalPaidOut: true }
+      select: { royaltyBalance: true, payoutAddress: true, totalPaidOut: true, address: true }
     });
 
     if (!artist) {
       return NextResponse.json({ error: 'Artist not found' }, { status: 404 });
     }
 
-    if (!artist.payoutAddress) {
-      return NextResponse.json({ error: 'Payout address not set' }, { status: 400 });
+    const actualPayoutAddress = artist.payoutAddress || artist.address;
+    if (!actualPayoutAddress) {
+      return NextResponse.json({ error: 'No payout address or wallet address found' }, { status: 400 });
     }
 
     if (artist.royaltyBalance < MIN_PAYOUT) {

@@ -23,7 +23,10 @@ export async function GET(req: Request) {
         } 
       }
     });
-    const ownedMedia = ownedNFTs.map(nft => nft.media);
+    const ownedMedia = ownedNFTs.map(nft => ({
+      ...nft.media,
+      userQuantity: nft.quantity
+    }));
 
     // 2. Fetch Liked Media
     const likedSongs = await prisma.like.findMany({
@@ -64,18 +67,36 @@ export async function GET(req: Request) {
       })
       .slice(0, 20);
 
+    // 4. Fetch Playlists
+    const playlists = await prisma.playlist.findMany({
+      where: { userId },
+      include: {
+        _count: { select: { items: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
     const redactMedia = (media: any) => {
       const isOwned = ownedMedia.some(m => m.id === media.id);
+      const isAuthorized = !media.isGated || media.authorId === userId || session.user.isSubscribed || isOwned;
       return {
         ...media,
-        url: (media.authorId === userId || session.user.isSubscribed || isOwned) ? media.url : null
+        url: isAuthorized ? media.url : null
       };
     };
+
+    // 5. Get User Royalty Balance
+    const userRecord = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { royaltyBalance: true }
+    });
 
     return NextResponse.json({
       owned: ownedMedia.map(redactMedia),
       likes: likedMedia.map(redactMedia),
-      recent: uniqueRecentMedia.map(redactMedia)
+      recent: uniqueRecentMedia.map(redactMedia),
+      playlists,
+      royaltyBalance: userRecord?.royaltyBalance || 0
     });
   } catch (error: any) {
     console.error("Library fetch error:", error);

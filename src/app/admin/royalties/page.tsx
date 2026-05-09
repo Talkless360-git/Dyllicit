@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId, useWriteContract, useSwitchChain } from 'wagmi';
+import { waitForTransactionReceipt } from '@wagmi/core';
+import { config } from '@/providers/Web3Provider';
 import Button from '@/components/ui/Button';
 import { 
   Coins, 
@@ -12,11 +14,15 @@ import {
   CheckCircle2, 
   History,
   LayoutDashboard,
-  Wallet
+  Wallet,
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
 import { getProvider, getSigner } from '@/lib/blockchain/provider';
 import { ethers, Contract } from 'ethers';
 import ChainStreamSubscription from '@/lib/blockchain/contracts/ChainStreamSubscription.json';
+import ChainStreamNFT from '@/lib/blockchain/contracts/ChainStreamNFT.json';
+import WalletConnect from '@/components/web3/WalletConnect';
 
 interface Settlement {
   id: string;
@@ -40,11 +46,14 @@ interface ArtistSettlement {
 }
 
 interface RoyaltyStats {
-  contractBalance: string;
+  royaltyPoolBalance: string;
+  platformProfits: string;
   platformEarnings: string;
   platformFeePercent: string;
   lastSettlementDate: string | null;
   pendingSettlementsCount: number;
+  contractOwner: string;
+  platformRevenueBreakdown: any[];
   isDue: boolean;
   history: Settlement[];
 }
@@ -53,38 +62,60 @@ export default function RoyaltiesPage() {
   const [stats, setStats] = useState<RoyaltyStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [payoutData, setPayoutData] = useState<{ artists: string[], amounts: string[], count: number, rawSettlements: ArtistSettlement[] } | null>(null);
+  const [payoutData, setPayoutData] = useState<{ 
+    artists: string[], 
+    amounts: string[], 
+    tokenIds: string[],
+    count: number, 
+    rawSettlements: ArtistSettlement[] 
+  } | null>(null);
   const [contractOwner, setContractOwner] = useState<string | null>(null);
 
-  const { address: connectedAddress } = useAccount();
+  const { address: connectedAddress, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+  const targetChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || '6343');
+  const isWrongNetwork = chainId !== targetChainId;
+
+  const [mounted, setMounted] = useState(false);
 
   const fetchStats = async () => {
     try {
-      const resp = await fetch('/api/admin/royalties/stats');
-      const data = await resp.json();
-      if (data.success) {
-        setStats(data.stats);
-      }
+      console.log("[RoyaltiesPage] Fetching stats...");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const resp = await fetch('/api/admin/royalties/stats', { 
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       
-      // Also fetch contract owner for UI guidance
-      const signer = await getSigner();
-      const contract = new Contract(
-        ChainStreamSubscription.address,
-        ChainStreamSubscription.abi,
-        signer
-      );
-      const owner = await contract.owner();
-      setContractOwner(owner);
+      const data = await resp.json();
+      if (data.success && data.stats.contractOwner) {
+        setStats(data.stats);
+        setContractOwner(data.stats.contractOwner);
+      } else {
+        console.error("API error or missing owner:", data.error);
+        // Secondary fallback to known developer wallet if API fails
+        setContractOwner("0x047DF2c5Dd11BC7579E53800B1b6E54c6414826f");
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Error fetching royalty stats:", e);
+      // Secondary fallback to known developer wallet if API fails
+      setContractOwner("0x047DF2c5Dd11BC7579E53800B1b6E54c6414826f");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    setMounted(true);
     fetchStats();
   }, []);
+
+  if (!mounted) return null;
 
   const handleSettle = async () => {
     if (!confirm('This will aggregate all unsettled streams and calculate the current royalty split. Procced?')) return;
@@ -134,9 +165,9 @@ export default function RoyaltiesPage() {
         signer
       );
 
-      console.log("Executing payout for:", payoutData.artists, payoutData.amounts);
+      console.log("Executing payout for:", payoutData.artists, payoutData.amounts, payoutData.tokenIds);
       
-      const tx = await contract.payoutRoyalties(payoutData.artists, payoutData.amounts);
+      const tx = await contract.payoutRoyalties(payoutData.artists, payoutData.amounts, payoutData.tokenIds);
       alert(`Transaction submitted: ${tx.hash}. Waiting for confirmation...`);
       
       const receipt = await tx.wait();
@@ -164,13 +195,36 @@ export default function RoyaltiesPage() {
     }
   };
 
-  if (loading) return <div className="loading-container"><Loader2 className="animate-spin" /></div>;
+  const handleWithdrawProtocolFees = async () => {
+    if (!isConnected || isWrongNetwork) return;
+    try {
+      const hash = await writeContractAsync({
+        address: ChainStreamNFT.address as `0x${string}`,
+        abi: ChainStreamNFT.abi,
+        functionName: 'withdrawFees',
+      });
+      await waitForTransactionReceipt(config, { hash });
+      alert('Protocol fees successfully withdrawn to your wallet!');
+    } catch (e: any) {
+      alert(`Withdrawal failed: ${e.message}`);
+    }
+  };
+
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '10rem' }}><Loader2 className="animate-spin text-primary" size={48} /></div>;
 
   return (
     <div className="royalties-page animate-fade-in">
       <div className="header">
-        <h1>Dyllicit Royalty Hub</h1>
-        <p>Calculate, settle, and execute streaming payments to platform artists.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1>Dyllicit Royalty Hub</h1>
+            <p>Calculate, settle, and execute streaming payments to platform artists.</p>
+          </div>
+          <Button variant="outline" onClick={handleWithdrawProtocolFees} disabled={isWrongNetwork}>
+            <ShieldCheck size={18} />
+            Withdraw Minting Fees
+          </Button>
+        </div>
       </div>
 
       {stats?.isDue && (
@@ -187,16 +241,16 @@ export default function RoyaltiesPage() {
         <div className="stat-card glass">
           <div className="stat-icon"><Coins /></div>
           <div className="stat-content">
-            <span className="label">Royalty Pool Balance</span>
-            <span className="value">{stats?.contractBalance} ETH</span>
+            <span className="label">Royalty Pool (Payout Balance)</span>
+            <span className="value">{stats?.royaltyPoolBalance || '0.0'} ETH</span>
           </div>
         </div>
 
         <div className="stat-card glass">
           <div className="stat-icon" style={{ color: '#10b981', background: 'rgba(16,185,129,0.1)' }}><Wallet /></div>
           <div className="stat-content">
-            <span className="label">Platform Earnings ({stats?.platformFeePercent || '2.5'}%)</span>
-            <span className="value">{stats?.platformEarnings} ETH</span>
+            <span className="label">Platform Profits (NFT Contract)</span>
+            <span className="value">{stats?.platformProfits || '0.0'} ETH</span>
           </div>
         </div>
 
@@ -221,17 +275,30 @@ export default function RoyaltiesPage() {
         <div className="stat-card glass full-width-card">
           <div className="stat-icon"><Wallet /></div>
           <div className="stat-content">
-            <span className="label">Contract Owner (Required for Payouts)</span>
             <span className="value" style={{ fontSize: '0.9rem', fontFamily: 'monospace' }}>
-              {contractOwner ? `${contractOwner.slice(0, 10)}...${contractOwner.slice(-8)}` : 'Loading...'}
+              {contractOwner && contractOwner !== "Unknown" 
+                ? `${contractOwner.slice(0, 10)}...${contractOwner.slice(-8)}` 
+                : (contractOwner === "Unknown" ? "Could not fetch owner" : 'Loading...')}
             </span>
-            <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              {connectedAddress?.toLowerCase() === contractOwner?.toLowerCase() ? (
-                <span className="status-badge success" style={{ fontSize: '0.7rem' }}>✓ Authorized Wallet Connected</span>
+            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ fontSize: '0.75rem', opacity: 0.5 }}>
+                Connected: {connectedAddress ? `${connectedAddress.slice(0, 10)}...${connectedAddress.slice(-8)}` : 'Not Connected'}
+              </div>
+              
+              {!isConnected ? (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <WalletConnect fullWidth={false} />
+                </div>
               ) : (
-                <span className="status-badge warning" style={{ fontSize: '0.7rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
-                  ⚠ Switch to Owner Wallet to execute payouts
-                </span>
+                <>
+                  {contractOwner && connectedAddress && connectedAddress.toLowerCase() === contractOwner.toLowerCase() ? (
+                    <span className="status-badge success" style={{ fontSize: '0.7rem' }}>✓ Authorized Wallet Connected</span>
+                  ) : (
+                    <span className="status-badge warning" style={{ fontSize: '0.7rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+                      ⚠ Switch to Owner Wallet to execute payouts
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -270,13 +337,64 @@ export default function RoyaltiesPage() {
                 <span><strong>{payoutData.count}</strong> Artists</span>
                 <span><strong>Summary Ready</strong></span>
               </div>
-              <Button variant="primary" onClick={executePayout} disabled={actionLoading}>
-                {actionLoading ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
-                Confirm & Sign Transaction
-              </Button>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <Button variant="outline" onClick={handleWithdrawProtocolFees} disabled={isWrongNetwork}>
+                  <ShieldCheck size={18} />
+                  Withdraw Minting Fees
+                </Button>
+                <Button variant="primary" onClick={executePayout} disabled={actionLoading}>
+                  {actionLoading ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+                  Confirm & Sign Transaction
+                </Button>
+              </div>
               <button className="text-btn" onClick={() => setPayoutData(null)}>Cancel</button>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Platform Revenue Breakdown */}
+      <div className="history-section animate-fade-in" style={{ marginTop: '2rem' }}>
+        <div className="section-header">
+          <RefreshCw size={20} />
+          <h2>Platform Revenue Tracking</h2>
+        </div>
+        <div className="glass" style={{ padding: '1rem', overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                <th style={{ padding: '1rem', opacity: 0.5, fontSize: '0.8rem' }}>TRANSACTION</th>
+                <th style={{ padding: '1rem', opacity: 0.5, fontSize: '0.8rem' }}>TYPE</th>
+                <th style={{ padding: '1rem', opacity: 0.5, fontSize: '0.8rem' }}>SOURCE</th>
+                <th style={{ padding: '1rem', opacity: 0.5, fontSize: '0.8rem' }}>AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats?.platformRevenueBreakdown?.map((fee: any, idx: number) => (
+                <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <td style={{ padding: '1rem' }}>
+                    <a href={`https://carrot.megaeth.com/tx/${fee.transactionHash}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontSize: '0.8rem' }}>
+                      {fee.transactionHash.slice(0, 10)}...
+                    </a>
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <span className={`status-badge ${fee.type === 'MINT' ? 'success' : 'primary'}`} style={{ fontSize: '0.7rem' }}>
+                      {fee.type}
+                    </span>
+                  </td>
+                  <td style={{ padding: '1rem', fontSize: '0.8rem', opacity: 0.6 }}>{fee.from.slice(0, 10)}...</td>
+                  <td style={{ padding: '1rem', fontWeight: 'bold' }}>{fee.amount} ETH</td>
+                </tr>
+              ))}
+              {(!stats?.platformRevenueBreakdown || stats.platformRevenueBreakdown.length === 0) && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', padding: '3rem', opacity: 0.5, fontStyle: 'italic' }}>
+                    No platform fees recorded yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

@@ -4,11 +4,13 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Pencil, Trash2, Edit3, Loader2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import EditModal from '@/components/artist/EditModal';
 
 export default function ArtistContent() {
   const [media, setMedia] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingMedia, setEditingMedia] = useState<any | null>(null);
 
   const fetchMedia = async () => {
     const res = await fetch('/api/artist/stats');
@@ -65,6 +67,8 @@ export default function ArtistContent() {
               <th>Type</th>
               <th>Genre</th>
               <th>Streams</th>
+              <th>Fractions Left</th>
+              <th>Sales Revenue</th>
               <th>Release Date</th>
               <th>Actions</th>
             </tr>
@@ -82,10 +86,22 @@ export default function ArtistContent() {
                 <td className="tag-cell"><span className="tag">{item.type.toUpperCase()}</span></td>
                 <td>{item.genre || 'Uncategorized'}</td>
                 <td>{item.playCount}</td>
+                <td>
+                  {item.totalShares > 1 ? (
+                    <span style={{ fontWeight: 'bold', color: item.sharesLeft === 0 ? '#ef4444' : '#10b981' }}>
+                      {item.sharesLeft !== undefined ? item.sharesLeft : item.totalShares} / {item.totalShares}
+                    </span>
+                  ) : (
+                    <span style={{ opacity: 0.5 }}>1 / 1 (Single)</span>
+                  )}
+                </td>
+                <td style={{ color: '#f59e0b', fontWeight: 'bold' }}>
+                  {item.salesRevenue ? `${item.salesRevenue.toFixed(4)} ETH` : '-'}
+                </td>
                 <td>{new Date(item.createdAt).toLocaleDateString()}</td>
                 <td className="actions-cell">
                   {/* For brevity we use browser prompts, normally this would trigger a Modal */}
-                  <Button variant="glass" size="sm" onClick={() => alert("Edit modal functionality coming soon!")}>
+                  <Button variant="glass" size="sm" onClick={() => setEditingMedia(item)}>
                     <Pencil size={14} />
                   </Button>
                   <Button variant="glass" size="sm" onClick={() => handleDelete(item.id, item.title)} disabled={deletingId === item.id}>
@@ -96,12 +112,20 @@ export default function ArtistContent() {
             ))}
             {media.length === 0 && (
               <tr>
-                <td colSpan={6} className="empty-state">No content uploaded yet.</td>
+                <td colSpan={8} className="empty-state">No content uploaded yet.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {editingMedia && (
+        <EditModal 
+          media={editingMedia} 
+          onClose={() => setEditingMedia(null)} 
+          onSuccess={fetchMedia} 
+        />
+      )}
 
       <style jsx>{`
         .header {

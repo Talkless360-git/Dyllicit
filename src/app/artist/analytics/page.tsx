@@ -16,7 +16,10 @@ export default function AnalyticsDashboard() {
     // We are simulating fetching the time-series aggregation from /api/artist/stats
     // using their actual total data and building a historical trajectory for the charts.
     fetch('/api/artist/stats')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error("Failed to fetch analytics");
+        return r.json();
+      })
       .then(d => {
         if (d.success) {
           const tStreams = d.stats.totalStreams || 0;
@@ -30,6 +33,10 @@ export default function AnalyticsDashboard() {
           ];
           setChartData(mockSeries);
         }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Analytics fetch error:", err);
         setLoading(false);
       });
   }, [timeFilter]);

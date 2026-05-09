@@ -33,23 +33,46 @@ export async function POST(req: Request) {
       }
     });
 
-    // 3. Create the NFT ownership record
-    // We use upsert to handle cases where the user might trigger the sync multiple times
-    const ownership = await prisma.nFT.upsert({
-      where: {
-        userId_mediaId: {
+    // 3. Create the NFT ownership record and decrement author's quantity
+    const ownership = await prisma.$transaction(async (tx) => {
+      // Upsert buyer
+      const buyerRecord = await tx.nFT.upsert({
+        where: {
+          userId_mediaId: {
+            userId: user.id,
+            mediaId: media.id
+          }
+        },
+        update: {
+          ownerAddress: normalizedAddress,
+          quantity: { increment: 1 }
+        },
+        create: {
           userId: user.id,
-          mediaId: media.id
+          mediaId: media.id,
+          ownerAddress: normalizedAddress,
+          quantity: 1
         }
-      },
-      update: {
-        ownerAddress: normalizedAddress
-      },
-      create: {
-        userId: user.id,
-        mediaId: media.id,
-        ownerAddress: normalizedAddress
+      });
+
+      // Decrement seller (artist)
+      const sellerRecord = await tx.nFT.findUnique({
+        where: {
+          userId_mediaId: {
+            userId: media.authorId,
+            mediaId: media.id
+          }
+        }
+      });
+
+      if (sellerRecord && sellerRecord.quantity > 0) {
+        await tx.nFT.update({
+          where: { id: sellerRecord.id },
+          data: { quantity: { decrement: 1 } }
+        });
       }
+
+      return buyerRecord;
     });
 
     console.log(`[Collect] Ownership recorded for user ${user.id} and media ${media.id}`);

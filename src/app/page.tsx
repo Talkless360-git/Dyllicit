@@ -29,7 +29,7 @@ export default function Home() {
     } else if (!user) {
       await login();
     } else {
-      router.push(user.role === 'ADMIN' ? '/admin' : '/explore');
+      router.push(user.role === 'ADMIN' ? '/admin' : user.role === 'ARTIST' ? '/artist' : '/explore');
     }
   };
 
@@ -66,7 +66,7 @@ export default function Home() {
                   onClick={handleAuth}
                   disabled={isLoginLoading || isStoreConnecting}
                 >
-                  {!mounted ? 'Connect Wallet' : (user ? 'Go to App' : (isConnected ? 'Sign In to Proceed' : 'Connect Wallet'))}
+                  {!mounted ? 'Connect Wallet' : (user ? (user.role === 'ADMIN' ? 'Admin Dashboard' : user.role === 'ARTIST' ? 'Artist Dashboard' : 'Go to Library') : (isConnected ? 'Sign In to Proceed' : 'Connect Wallet'))}
                 </Button>
                 <Button variant="glass" size="lg" onClick={playSample}>Explore Music</Button>
               </div>

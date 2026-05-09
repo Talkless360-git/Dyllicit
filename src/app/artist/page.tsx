@@ -8,8 +8,11 @@ import {
   TrendingUp, 
   Plus, 
   Users,
-  Clock
+  Clock,
+  Wallet
 } from 'lucide-react';
+import { useAccount, useReadContract, useWriteContract } from 'wagmi';
+import ChainStreamSubscriptionABI from '@/lib/blockchain/contracts/ChainStreamSubscription.json';
 
 interface ArtistStats {
   totalStreams: number;
@@ -17,22 +20,39 @@ interface ArtistStats {
   royaltyBalance: number;
   payoutAddress?: string;
   recentStreams: any[];
+  totalSharesSold?: number;
+  totalSalesRevenue?: number;
 }
 
 export default function ArtistDashboard() {
+  const { address } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  
+  const { data: pendingOnChainData, refetch: refetchOnChain } = useReadContract({
+    address: ChainStreamSubscriptionABI.address as `0x${string}`,
+    abi: ChainStreamSubscriptionABI.abi,
+    functionName: 'pendingRoyalties',
+    args: address ? [address] : undefined,
+    query: { enabled: !!address }
+  });
+  
+  const pendingOnChain = pendingOnChainData ? Number(formatEther(pendingOnChainData as bigint)) : 0;
+
   const [stats, setStats] = useState<ArtistStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [payoutStatus, setPayoutStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [payoutMessage, setPayoutMessage] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   useEffect(() => {
     fetchStats();
   }, []);
 
   const fetchStats = () => {
-    fetch('/api/artist/stats')
+    fetch('/api/artist/stats', { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
+        console.log("Fetched stats:", data);
         if (data.success) {
           setStats(data.stats);
         }
@@ -50,15 +70,37 @@ export default function ArtistDashboard() {
       const data = await res.json();
       if (data.success) {
         setPayoutStatus('success');
-        setPayoutMessage(`Payout of ${data.payoutAmount.toFixed(4)} ETH requested successfully`);
+        const msg = `Payout of ${data.payoutAmount.toFixed(4)} ETH requested successfully! Your royalties are accrued and waiting for the next batch distribution.`;
+        setPayoutMessage(msg);
+        alert(msg);
         fetchStats(); // Refresh stats
       } else {
         setPayoutStatus('error');
         setPayoutMessage(data.error);
+        alert(`Error: ${data.error}`);
       }
     } catch (error) {
       setPayoutStatus('error');
       setPayoutMessage('Failed to request payout');
+      alert('Failed to request payout');
+    }
+  };
+
+  const handleWithdraw = async () => {
+    setIsWithdrawing(true);
+    try {
+      const tx = await writeContractAsync({
+        address: ChainStreamSubscriptionABI.address as `0x${string}`,
+        abi: ChainStreamSubscriptionABI.abi,
+        functionName: 'withdrawRoyalties',
+      });
+      alert(`Withdrawal submitted! TX Hash: ${tx}`);
+      refetchOnChain();
+    } catch (error: any) {
+      console.error(error);
+      alert(`Withdrawal failed: ${error.message}`);
+    } finally {
+      setIsWithdrawing(false);
     }
   };
 
@@ -103,20 +145,56 @@ export default function ArtistDashboard() {
             <TrendingUp size={24} color="#3b82f6" />
             <span>Royalty Balance</span>
           </div>
+          
+          {/* Off-Chain Pending Balance */}
           <div className="metric-value">{(stats?.royaltyBalance || 0).toFixed(4)} ETH</div>
           <div className="metric-footer">
-            {!stats?.payoutAddress ? 'Set payout address to claim' : 
-             (stats.royaltyBalance >= 0.005 ? 'Ready for payout' : `Min. 0.005 ETH required`)}
+            Off-chain accrued (Waiting for Admin Batch Payout)
           </div>
           {stats?.payoutAddress && stats.royaltyBalance >= 0.005 && (
             <button 
               className="payout-btn"
               onClick={handlePayout}
               disabled={payoutStatus === 'pending'}
+              style={{ marginBottom: '1rem' }}
             >
-              {payoutStatus === 'pending' ? 'Processing...' : 'Request Payout'}
+              {payoutStatus === 'pending' ? 'Processing...' : 'Request Admin Settlement'}
             </button>
           )}
+
+          {/* On-Chain Ready Balance */}
+          <div className="metric-value" style={{ marginTop: '1rem', color: '#10b981' }}>{pendingOnChain.toFixed(4)} ETH</div>
+          <div className="metric-footer" style={{ color: '#10b981' }}>
+            Ready to withdraw on-chain!
+          </div>
+          {pendingOnChain > 0 && (
+            <button 
+              className="payout-btn"
+              onClick={handleWithdraw}
+              disabled={isWithdrawing}
+              style={{ background: '#10b981' }}
+            >
+              {isWithdrawing ? 'Withdrawing...' : 'Withdraw to Wallet'}
+            </button>
+          )}
+        </div>
+
+        <div className="metric-card glass">
+          <div className="metric-header">
+            <Users size={24} color="#8b5cf6" />
+            <span>NFT Shares Sold</span>
+          </div>
+          <div className="metric-value">{stats?.totalSharesSold || 0}</div>
+          <div className="metric-footer">Direct purchases by fans</div>
+        </div>
+
+        <div className="metric-card glass">
+          <div className="metric-header">
+            <Wallet size={24} color="#f59e0b" />
+            <span>NFT Sales Revenue</span>
+          </div>
+          <div className="metric-value">{(stats?.totalSalesRevenue || 0).toFixed(4)} ETH</div>
+          <div className="metric-footer">Earnings from direct sales</div>
         </div>
       </div>
 

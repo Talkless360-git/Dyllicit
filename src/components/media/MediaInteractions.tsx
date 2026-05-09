@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Heart, MessageCircle, Send } from "lucide-react";
 import Button from "@/components/ui/Button";
+import AddToPlaylist from "@/components/media/AddToPlaylist";
 
 interface Comment {
   id: string;
@@ -65,6 +66,7 @@ export default function MediaInteractions({ mediaId, initialLikes, initialPlayCo
           <Heart fill={liked ? "currentColor" : "none"} size={20} />
           {likesCount} Likes
         </button>
+        {session && <AddToPlaylist mediaId={mediaId} />}
       </div>
 
       <div className="comments-section">
@@ -108,6 +110,7 @@ export default function MediaInteractions({ mediaId, initialLikes, initialPlayCo
           gap: 2rem;
           margin-bottom: 2rem;
           color: rgba(255,255,255,0.7);
+          align-items: center;
         }
         .action-btn {
           background: none;

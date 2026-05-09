@@ -9,7 +9,8 @@ import {
   BarChart2, 
   Settings, 
   Upload,
-  ArrowLeft
+  ArrowLeft,
+  Disc3
 } from 'lucide-react';
 import WalletConnect from '@/components/web3/WalletConnect';
 
@@ -23,6 +24,7 @@ export default function ArtistLayout({
   const menuItems = [
     { name: 'Dashboard', href: '/artist', icon: LayoutDashboard },
     { name: 'My Content', href: '/artist/content', icon: Music },
+    { name: 'NFTs', href: '/artist/nfts', icon: Disc3 },
     { name: 'Analytics', href: '/artist/analytics', icon: BarChart2 },
     { name: 'Settings', href: '/artist/settings', icon: Settings },
   ];

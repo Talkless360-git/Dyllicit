@@ -91,7 +91,14 @@ export const authOptions: NextAuthOptions = {
               }
             });
           }
-          return { id: adminUser.id, name: adminUser.name, email: adminUser.email, role: 'ADMIN', isSubscribed: false };
+          return { 
+            id: adminUser.id, 
+            name: adminUser.name, 
+            email: adminUser.email, 
+            role: 'ADMIN', 
+            address: adminUser.address || undefined,
+            isSubscribed: false 
+          };
         }
         return null;
       }
@@ -111,19 +118,25 @@ export const authOptions: NextAuthOptions = {
         try {
           const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
           
+          // --- SECURITY FIX: Prevent overriding protected roles ---
+          // If the user is an ADMIN, never change their role via cookies
           if (dbUser?.role === 'ADMIN') {
             cookieStore.delete("dyllicit_pending_role");
             return true;
           }
 
-          // If it's a very new user or doesn't have a role, set it
-          if (!dbUser || !dbUser.role || (Date.now() - new Date(dbUser.createdAt).getTime() < 60000)) {
+          // Only allow setting a role if the user doesn't have one, or if it's a fresh account (within 5 mins)
+          // This prevents session hijacking from being used to change roles of established accounts.
+          const isNewUser = !dbUser || !dbUser.role || (Date.now() - new Date(dbUser.createdAt).getTime() < 300000);
+          
+          if (isNewUser) {
             await prisma.user.update({
               where: { id: user.id },
               data: { role: pendingRole }
             });
             (user as any).role = pendingRole;
           }
+          // ------------------------------------------------------
 
           cookieStore.delete("dyllicit_pending_role");
         } catch(e) {

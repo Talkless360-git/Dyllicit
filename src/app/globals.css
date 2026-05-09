@@ -36,8 +36,6 @@
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
-
 * {
   box-sizing: border-box;
   padding: 0;
@@ -573,6 +571,7 @@ body {
 /* Custom Range Input Styling */
 input[type="range"].player-slider {
   -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   background: transparent;
   cursor: pointer;

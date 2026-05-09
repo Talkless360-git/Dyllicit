@@ -54,12 +54,31 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
 
           <div className="action-buttons">
               {media.price && media.price > 0 && media.tokenId && (
-                <CollectButton 
-                  mediaId={media.id} 
-                  tokenId={media.tokenId as string} 
-                  price={media.price} 
-                  isOwned={isOwned}
-                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <CollectButton 
+                    mediaId={media.id} 
+                    tokenId={media.tokenId as string} 
+                    price={media.price} 
+                    isOwned={isOwned}
+                  />
+                  
+                  {media.totalShares > 1 && (
+                    <div className="fractional-info glass" style={{ padding: '1rem', borderRadius: '0.75rem', fontSize: '0.9rem', border: '1px solid var(--primary)' }}>
+                      <p style={{ fontWeight: 'bold', color: 'var(--primary)', marginBottom: '0.25rem' }}>Investment Opportunity</p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.8 }}>
+                        <span>Total Shares:</span>
+                        <span>{media.totalShares}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.8 }}>
+                        <span>Holder Royalty Split:</span>
+                        <span>{media.fractionalRoyalty}%</span>
+                      </div>
+                      <p className="hint" style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>
+                        * Holders of this NFT earn a split of all streaming revenue.
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
              <DownloadButton trackUrl={media.url} />
           </div>

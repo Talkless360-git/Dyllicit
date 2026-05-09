@@ -6,6 +6,7 @@ import { Upload, Music, Film, CheckCircle, Loader2 } from 'lucide-react';
 import { mintNFT } from '@/lib/blockchain/mint';
 import { getSigner } from '@/lib/blockchain/provider';
 import { useReadContract } from 'wagmi';
+import { formatEther } from 'viem';
 import NFTABI from "@/lib/blockchain/contracts/ChainStreamNFT.json";
 
 const MintForm: React.FC = () => {
@@ -20,29 +21,56 @@ const MintForm: React.FC = () => {
     producer: '',
     releaseYear: new Date().getFullYear(),
     scheduledRelease: '',
-    price: 0
+    price: 0,
+    totalShares: 1, // Default to 1 (unfractionalized)
+    fractionalRoyalty: 0 // % of artist royalty given to holders
   });
   
   const [defaultRoyalty, setDefaultRoyalty] = useState(5);
+  const [platformMintingFee, setPlatformMintingFee] = useState("0");
   const [file, setFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch global settings for royalty from blockchain
   const { data: onChainRoyalty } = useReadContract({
     address: NFTABI.address as `0x${string}`,
     abi: NFTABI.abi,
     functionName: 'globalRoyaltyBps',
+    query: {
+      enabled: mounted
+    }
   });
+
+  const { data: onChainMintingFee } = useReadContract({
+    address: NFTABI.address as `0x${string}`,
+    abi: NFTABI.abi,
+    functionName: 'platformMintingFee',
+    query: {
+      enabled: mounted
+    }
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [isMinting, setIsMinting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
     if (onChainRoyalty !== undefined) {
       setDefaultRoyalty(Number(onChainRoyalty) / 100);
     }
-  }, [onChainRoyalty]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-  const [isMinting, setIsMinting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+    if (onChainMintingFee !== undefined) {
+      setPlatformMintingFee(formatEther(onChainMintingFee as bigint));
+    }
+  }, [onChainRoyalty, onChainMintingFee]);
+
+  // Guard return MUST be after all hooks
+  if (!mounted) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -74,10 +102,8 @@ const MintForm: React.FC = () => {
       let metadataUrl = '';
       let coverUrl = '';
       
-      // Generate a unique token ID (Timestamp + Random to prevent collisions)
       const tokenId = (BigInt(Date.now()) * BigInt(1000) + BigInt(Math.floor(Math.random() * 1000))).toString();
 
-      // 1. Upload Cover Photo
       if (coverFile) {
         const coverForms = new FormData();
         coverForms.append('file', coverFile);
@@ -90,15 +116,14 @@ const MintForm: React.FC = () => {
         }
         
         const coverData = await coverRes.json();
-        coverUrl = coverData.url; // This will be an IPFS URL from the proxy
+        coverUrl = coverData.url;
       }
 
-      // 2. Prepare metadata object
       const metadata = {
         name: formData.title,
         description: formData.description,
         image: coverUrl || 'https://gateway.pinata.cloud/ipfs/placeholder-hash',
-        animation_url: '', // will be set below
+        animation_url: '', 
         attributes: [
           { trait_type: 'Genre', value: formData.genre },
           { trait_type: 'Type', value: formData.type },
@@ -107,7 +132,6 @@ const MintForm: React.FC = () => {
         ]
       };
 
-      // 3. Upload Media File
       const uploadForms = new FormData();
       uploadForms.append('file', file);
       uploadForms.append('tokenId', tokenId);
@@ -122,7 +146,6 @@ const MintForm: React.FC = () => {
       mediaUrl = uploadData.url;
       metadata.animation_url = mediaUrl;
 
-      // 4. Upload Metadata to IPFS
       const metaRes = await fetch('/api/ipfs/metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,13 +160,20 @@ const MintForm: React.FC = () => {
       const metaData = await metaRes.json();
       metadataUrl = metaData.url;
 
-      // 4. Trigger Blockchain Mint
       try {
         const signer = await getSigner();
         const address = await signer.getAddress();
-        await mintNFT(signer, address, tokenId, 1, metadataUrl, defaultRoyalty * 100, formData.price);
+        await mintNFT(
+          signer, 
+          address, 
+          tokenId, 
+          formData.totalShares, 
+          metadataUrl, 
+          defaultRoyalty * 100, 
+          formData.price,
+          platformMintingFee
+        );
         
-        // 5. Sync with Database
         const syncRes = await fetch('/api/nft/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -161,12 +191,14 @@ const MintForm: React.FC = () => {
               releaseYear: formData.releaseYear,
               scheduledRelease: formData.scheduledRelease ? new Date(formData.scheduledRelease).toISOString() : null,
               album: formData.isAlbum ? formData.albumTitle : null,
-              price: formData.price
+              price: formData.price,
+              totalShares: formData.totalShares,
+              fractionalRoyalty: formData.fractionalRoyalty
             },
             nftData: {
               tokenId,
               metadataUrl,
-              contractAddr: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+              contractAddr: NFTABI.address,
             }
           })
         });
@@ -177,32 +209,19 @@ const MintForm: React.FC = () => {
         }
       } catch (innerError: any) {
         console.error("Detailed Minting Error:", innerError);
-        
         let errorMessage = "Blockchain transaction failed. Check MetaMask.";
-        
         if (innerError.message?.includes("Sync Error:")) {
            errorMessage = innerError.message;
         } else if (innerError.message?.includes("insufficient funds")) {
           errorMessage = "Insufficient funds for gas. Please get some testnet ETH.";
         } else if (innerError.message?.includes("user rejected") || innerError.code === "ACTION_REJECTED") {
           errorMessage = "Transaction rejected in MetaMask.";
-        } else if (innerError.message?.includes("onlyOwner") || (innerError.data && JSON.stringify(innerError.data).includes("onlyOwner"))) {
-          errorMessage = "Only the contract owner can mint. Ensure you are using the deployer wallet.";
+        } else if (innerError.message?.includes("onlyOwner")) {
+          errorMessage = "Only the contract owner can mint.";
         } else if (innerError.message?.includes("revert")) {
-          // Extract revert reason if possible
           const match = innerError.message.match(/reverted with reason string ["'](.*?)["']/);
-          errorMessage = match ? `Contract Revert: ${match[1]}` : `Contract Revert (No reason). Raw: ${innerError.message.substring(0, 50)}...`;
-        } else if (innerError.reason) {
-          errorMessage = `Blockchain Error: ${innerError.reason}`;
-        } else if (innerError.error?.message) {
-          errorMessage = innerError.error.message;
-        } else if (innerError.message) {
-          // Truncate very long technical messages for the UI
-          errorMessage = innerError.message.length > 100 
-            ? innerError.message.substring(0, 100) + "..." 
-            : innerError.message;
+          errorMessage = match ? `Contract Revert: ${match[1]}` : `Contract Revert.`;
         }
-        
         throw new Error(errorMessage);
       }
 
@@ -362,9 +381,41 @@ const MintForm: React.FC = () => {
 
         <div className="form-group">
           <label>Platform Standards</label>
-          <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '0.5rem', fontSize: '0.9rem' }}>
-            Royalty set by Admin: <strong>{defaultRoyalty}%</strong>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '0.5rem', fontSize: '0.9rem' }}>
+              Artist Royalty: <strong>{defaultRoyalty}%</strong>
+            </div>
+            <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '0.5rem', fontSize: '0.9rem', border: '1px solid var(--primary)' }}>
+              Minting Fee: <strong>{platformMintingFee} ETH</strong>
+            </div>
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>Fractional Shares</label>
+          <input 
+            type="number" 
+            min="1"
+            value={formData.totalShares}
+            onChange={(e) => setFormData({...formData, totalShares: parseInt(e.target.value) || 1})}
+          />
+          <p className="hint">Number of investment shares to create. Works even if content is public!</p>
+        </div>
+
+        <div className="form-group">
+          <label>Holder Royalty Split (%)</label>
+          <div className="input-with-icon">
+            <input 
+              type="number" 
+              step="0.1"
+              max="100"
+              placeholder="e.g. 50"
+              value={formData.fractionalRoyalty}
+              onChange={(e) => setFormData({...formData, fractionalRoyalty: parseFloat(e.target.value) || 0})}
+            />
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', paddingRight: '0.5rem' }}>%</span>
+          </div>
+          <p className="hint">% of your streaming earnings given to share holders.</p>
         </div>
 
         <div className="form-group full-width">
@@ -384,7 +435,9 @@ const MintForm: React.FC = () => {
             checked={formData.isGated}
             onChange={(e) => setFormData({...formData, isGated: e.target.checked})}
           />
-          <label htmlFor="isGated">Gated Content (Only NFT holders can stream)</label>
+          <label htmlFor="isGated">
+            <strong>NFT Gated (Private)</strong> — Only share holders can stream this content.
+          </label>
         </div>
       </div>
 
@@ -393,89 +446,23 @@ const MintForm: React.FC = () => {
       </Button>
 
       <style jsx>{`
-        .mint-form {
-          padding: 3rem;
-          max-width: 700px;
-          margin: 0 auto;
-        }
-        .form-header {
-          text-align: center;
-          margin-bottom: 2rem;
-          color: var(--primary);
-        }
-        .upload-area {
-          border: 2px dashed var(--glass-border);
-          border-radius: 1rem;
-          padding: 3rem;
-          text-align: center;
-          margin-bottom: 2rem;
-          background: rgba(255, 255, 255, 0.02);
-          transition: var(--transition);
-        }
-        .upload-area:hover {
-          border-color: var(--primary);
-          background: rgba(255, 255, 255, 0.04);
-        }
-        .upload-placeholder p {
-          margin-top: 1rem;
-          color: rgba(255, 255, 255, 0.6);
-        }
-        .hint {
-          font-size: 0.8rem;
-          opacity: 0.5;
-        }
-        .form-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 1.5rem;
-          margin-bottom: 2.5rem;
-        }
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-        .full-width {
-          grid-column: span 2;
-        }
-        label {
-          font-size: 0.9rem;
-          font-weight: 600;
-          opacity: 0.8;
-        }
-        input, select, textarea {
-          background: var(--input-bg);
-          border: 1px solid var(--glass-border);
-          border-radius: 0.5rem;
-          padding: 0.75rem;
-          color: white;
-          font-family: inherit;
-          outline: none;
-          transition: var(--transition);
-        }
-        input:focus, select:focus, textarea:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
-        }
-        .checkbox-group {
-          flex-direction: row;
-          align-items: center;
-          grid-column: span 2;
-        }
-        .checkbox-group label {
-          font-weight: 400;
-        }
-        .mint-success {
-          text-align: center;
-          padding: 5rem 2rem;
-        }
-        .mint-success h2 {
-          margin: 2rem 0 1rem;
-        }
-        .mint-success p {
-          margin-bottom: 3rem;
-          opacity: 0.7;
-        }
+        .mint-form { padding: 3rem; max-width: 700px; margin: 0 auto; }
+        .form-header { text-align: center; margin-bottom: 2rem; color: var(--primary); }
+        .upload-area { border: 2px dashed var(--glass-border); border-radius: 1rem; padding: 3rem; text-align: center; margin-bottom: 2rem; background: rgba(255, 255, 255, 0.02); transition: var(--transition); cursor: pointer; }
+        .upload-area:hover { border-color: var(--primary); background: rgba(255, 255, 255, 0.04); }
+        .upload-placeholder p { margin-top: 1rem; color: rgba(255, 255, 255, 0.6); }
+        .hint { font-size: 0.8rem; opacity: 0.5; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
+        .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .full-width { grid-column: span 2; }
+        label { font-size: 0.9rem; font-weight: 600; opacity: 0.8; }
+        input, select, textarea { background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.75rem; color: white; font-family: inherit; outline: none; transition: var(--transition); }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
+        .checkbox-group { flex-direction: row; align-items: center; grid-column: span 2; gap: 0.75rem; }
+        .checkbox-group label { font-weight: 400; cursor: pointer; }
+        .mint-success { text-align: center; padding: 5rem 2rem; }
+        .mint-success h2 { margin: 2rem 0 1rem; }
+        .mint-success p { margin-bottom: 3rem; opacity: 0.7; }
       `}</style>
     </form>
   );

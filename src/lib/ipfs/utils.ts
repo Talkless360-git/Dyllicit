@@ -5,7 +5,7 @@
  * to the configured Pinata Gateway.
  */
 
-const DEFAULT_GATEWAY = "https://gateway.pinata.cloud/ipfs";
+const DEFAULT_GATEWAY = "https://ipfs.io/ipfs";
 
 export const getIPFSUrl = (path: string | null | undefined): string => {
   if (!path) return "";

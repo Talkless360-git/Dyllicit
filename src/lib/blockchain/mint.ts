@@ -8,7 +8,8 @@ export const mintNFT = async (
   amount: number,
   uri: string,
   royaltyFee: number = 500, // default 5%
-  price: number = 0 // default free
+  price: number = 0, // default free
+  fee: string = "0" // platform minting fee in ETH
 ) => {
   try {
     const contract = new ethers.Contract(
@@ -25,6 +26,7 @@ export const mintNFT = async (
       Math.floor(royaltyFee), 
       ethers.parseEther(price.toString()),
       {
+        value: ethers.parseEther(fee),
         gasLimit: 500000 
       }
     );

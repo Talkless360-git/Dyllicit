@@ -45,23 +45,41 @@ export default function SubscriptionPage() {
       });
   }, []);
 
-  const { writeContractAsync, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContractAsync, isPending } = useWriteContract();
+  const [activeHash, setActiveHash] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  useEffect(() => {
-    if (isSuccess && hash) {
-      // Complete subscription on backend
-      fetch("/api/subscription", {
+  const syncSubscription = async (hash: string) => {
+    setIsVerifying(true);
+    console.log("Syncing with backend... Hash:", hash);
+    try {
+      const res = await fetch("/api/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ txnHash: hash })
-      }).then(async () => {
-        // Update session so the frontend knows we're subscribed
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        console.log("Backend sync successful:", data);
         await update();
         setSubscribed(true);
-      });
+        setIsVerifying(false);
+      } else {
+        // If it's not yet indexed, we'll try again in a moment or wait for user to click manual
+        console.warn("Backend sync not ready yet:", data.error);
+        if (data.error.includes("indexed")) {
+          setTimeout(() => syncSubscription(hash), 3000); // Retry in 3s
+        } else {
+          setIsVerifying(false);
+          alert(`Verification failed: ${data.error}`);
+        }
+      }
+    } catch (err) {
+      console.error("API call error:", err);
+      setIsVerifying(false);
     }
-  }, [isSuccess, hash, update]);
+  };
 
   const handleSubscribe = async () => {
     if (!isConnected) {
@@ -70,15 +88,21 @@ export default function SubscriptionPage() {
     }
     
     try {
-      await writeContractAsync({
+      console.log("Initiating subscription...");
+      const hash = await writeContractAsync({
         address: SubscriptionABI.address as `0x${string}`,
         abi: SubscriptionABI.abi,
         functionName: 'subscribe',
         value: parseEther(fee),
       });
-    } catch (err) {
-      console.error(err);
-      alert("Transaction failed or was rejected.");
+      
+      if (hash) {
+        setActiveHash(hash);
+        syncSubscription(hash);
+      }
+    } catch (err: any) {
+      console.error("Subscription initiation failed:", err);
+      alert(`Transaction failed: ${err.message || "User rejected or insufficient funds"}`);
     }
   };
 
@@ -182,12 +206,24 @@ export default function SubscriptionPage() {
               variant="primary" 
               size="lg" 
               onClick={handleSubscribe} 
-              disabled={isPending || isConfirming}
+              disabled={isPending || isVerifying}
               className="subscribe-btn"
               fullWidth
             >
-              {isPending || isConfirming ? <Loader2 className="animate-spin" /> : "Subscribe with Wallet"}
+              {isPending || isVerifying ? <Loader2 className="animate-spin" /> : "Subscribe with Wallet"}
             </Button>
+            
+            {activeHash && !subscribed && !isVerifying && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => syncSubscription(activeHash)}
+                style={{ marginTop: '1rem' }}
+                fullWidth
+              >
+                Transaction pending? Click to Sync Manually
+              </Button>
+            )}
             
             <p className="footer-note">Secure on-chain transaction. Gas fees apply.</p>
           </div>

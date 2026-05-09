@@ -29,6 +29,7 @@ export async function GET(req: Request) {
     // Security Layer: Redact URLs for gated content if user is not authorized
     const securedMedia = mediaList.map(item => {
       const isAuthorized = 
+        !item.isGated ||
         item.authorId === session?.user?.id || 
         session?.user?.isSubscribed === true ||
         item.nfts.length > 0;

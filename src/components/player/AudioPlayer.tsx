@@ -7,10 +7,11 @@ import { useSession } from 'next-auth/react';
 import { 
   Play, Pause, SkipForward, SkipBack, Volume2, Star, Lock, 
   Maximize2, Minimize2, Heart, Shuffle, Repeat, ChevronDown,
-  RotateCcw, RotateCw
+  RotateCcw, RotateCw, ListPlus
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getIPFSUrl } from '@/lib/ipfs/utils';
+import { useUIStore } from '@/store/useUIStore';
 
 import { useReadContract } from 'wagmi';
 import NFTABI from "@/lib/blockchain/contracts/ChainStreamNFT.json";
@@ -33,11 +34,17 @@ const AudioPlayer: React.FC = () => {
     nextTrack,
     prevTrack
   } = usePlayerStore();
+  const { openPlaylistModal } = useUIStore();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [localTime, setLocalTime] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Check NFT Ownership on MegaETH
   const { data: nftBalance } = useReadContract({
     address: NFTABI.address as `0x${string}`,
@@ -45,19 +52,95 @@ const AudioPlayer: React.FC = () => {
     functionName: 'balanceOf',
     args: [session?.user?.address as `0x${string}`, BigInt(currentTrack?.tokenId || 0)],
     query: {
-      enabled: !!session?.user?.address && !!currentTrack?.tokenId
+      enabled: mounted && !!session?.user?.address && !!currentTrack?.tokenId
     }
   });
 
-  const isOwner = Number(nftBalance || 0) > 0;
-  const isAuthor = !!session?.user?.id && !!currentTrack?.authorId && session.user.id === currentTrack.authorId;
-  const isGated = !isSubscriber && !isAuthor && !isOwner;
-  
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   
   const mediaRef = currentTrack?.type === 'video' ? videoRef : audioRef;
   const frequencyData = useVisualizer(mediaRef);
+  const [isLiked, setIsLiked] = useState(false);
+
+  // Track if current song is liked
+  useEffect(() => {
+    if (session && currentTrack) {
+      setIsLiked(false); 
+    }
+  }, [currentTrack, session]);
+
+  // Record Stream History
+  useEffect(() => {
+    if (session && currentTrack && isPlaying) {
+      if (currentTrack.authorId === session.user.id) return;
+
+      const recordStream = async () => {
+        try {
+          await fetch('/api/interactions/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mediaId: currentTrack.id })
+          });
+        } catch (e) {
+          console.error("Failed to record stream", e);
+        }
+      };
+      
+      const timer = setTimeout(recordStream, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentTrack?.id, isPlaying, session]);
+
+  useEffect(() => {
+    const activeMedia = mediaRef.current;
+    if (!activeMedia) return;
+
+    const isOwner = Number(nftBalance || 0) > 0;
+    const isAuthor = !!session?.user?.id && !!currentTrack?.authorId && session.user.id === currentTrack.authorId;
+    const isGated = currentTrack?.isGated && !isSubscriber && !isAuthor && !isOwner;
+
+    if (isGated) {
+      activeMedia.pause();
+      return;
+    }
+    
+    if (isPlaying) {
+      console.log(`[AudioPlayer] Playing: ${currentTrack?.title} | Gated: ${isGated} | URL: ${getIPFSUrl(currentTrack?.url)}`);
+      // Force load on track change to ensure src is updated
+      if (activeMedia.paused) {
+        activeMedia.play().catch(error => {
+          console.error("Playback failed:", error);
+          if (error.name !== 'AbortError') {
+            setIsPlaying(false);
+          }
+        });
+      }
+    } else {
+      activeMedia.pause();
+    }
+  }, [isPlaying, currentTrack?.id, nftBalance, session, isSubscriber, mediaRef, setIsPlaying]);
+
+  // Handle source changes explicitly
+  useEffect(() => {
+    if (mediaRef.current) {
+      mediaRef.current.load();
+      if (isPlaying) {
+        mediaRef.current.play().catch(() => {});
+      }
+    }
+  }, [currentTrack?.url]);
+
+  useEffect(() => {
+    if (mediaRef.current) mediaRef.current.volume = volume;
+  }, [volume, mediaRef]);
+
+  // Hydration guard - must be AFTER all hooks
+  if (!mounted || !currentTrack) return null;
+
+  const isOwner = Number(nftBalance || 0) > 0;
+  const isAuthor = session?.user?.id === currentTrack?.authorId && !!currentTrack?.authorId;
+  const isGated = currentTrack?.isGated && !isSubscriber && !isAuthor && !isOwner;
 
   const lyrics = [
     { time: 0, text: "Welcome to Dyllicit" },
@@ -76,47 +159,12 @@ const AudioPlayer: React.FC = () => {
     return currentTime >= l.time && currentTime < nextTime;
   });
 
-  const [isLiked, setIsLiked] = useState(false);
-
   const formatTime = (seconds: number) => {
     if (!isFinite(seconds)) return '0:00';
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
-
-  // Track if current song is liked
-  useEffect(() => {
-    if (session && currentTrack) {
-      // In a real app, we'd fetch the liked status. 
-      // For now, we'll keep it local or assume false.
-      setIsLiked(false); 
-    }
-  }, [currentTrack, session]);
-
-  // Record Stream History
-  useEffect(() => {
-    if (session && currentTrack && isPlaying) {
-      // Skip recording for artists playing their own songs (no royalties for self-plays)
-      if (currentTrack.authorId === session.user.id) return;
-
-      const recordStream = async () => {
-        try {
-          await fetch('/api/interactions/stream', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mediaId: currentTrack.id })
-          });
-        } catch (e) {
-          console.error("Failed to record stream", e);
-        }
-      };
-      
-      // Debounce stream recording (only record if played for at least 3 seconds)
-      const timer = setTimeout(recordStream, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentTrack?.id, isPlaying, session]);
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -138,21 +186,6 @@ const AudioPlayer: React.FC = () => {
       console.error("Failed to like song", e);
     }
   };
-
-  useEffect(() => {
-    const activeMedia = mediaRef.current;
-    if (!activeMedia || isGated) return;
-    
-    if (isPlaying) {
-      activeMedia.play().catch(() => setIsPlaying(false));
-    } else {
-      activeMedia.pause();
-    }
-  }, [isPlaying, currentTrack, isGated, mediaRef, setIsPlaying]);
-
-  useEffect(() => {
-    if (mediaRef.current) mediaRef.current.volume = volume;
-  }, [volume, mediaRef]);
 
   const onTimeUpdate = () => {
     const activeMedia = mediaRef.current;
@@ -182,8 +215,6 @@ const AudioPlayer: React.FC = () => {
   const skipBackward = () => {
     if (mediaRef.current) mediaRef.current.currentTime -= 10;
   };
-
-  if (!currentTrack) return null;
 
   return (
     <div className={`audio-player-wrapper ${isExpanded ? 'expanded' : 'mini animate-slide-up'}`}>
@@ -272,6 +303,13 @@ const AudioPlayer: React.FC = () => {
               className={`cursor-pointer transition-colors ${isLiked ? 'text-red-500 fill-red-500' : 'hover:text-red-500'}`} 
               onClick={handleLike}
             />
+            {session && (
+              <ListPlus 
+                size={20} 
+                className="cursor-pointer opacity-60 hover:opacity-100 transition-opacity" 
+                onClick={() => openPlaylistModal({ id: currentTrack.id, title: currentTrack.title })}
+              />
+            )}
             <button onClick={() => setIsExpanded(true)} className="icon-btn">
                <Maximize2 size={20} />
             </button>
@@ -297,7 +335,17 @@ const AudioPlayer: React.FC = () => {
               <p style={{ fontSize: '0.75rem', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '2px' }}>Playing From</p>
               <h5 style={{ margin: 0 }}>Dyllicit Discover</h5>
             </div>
-            <button className="icon-btn"><Star size={24} /></button>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              {session && (
+                <button 
+                  className="icon-btn" 
+                  onClick={() => openPlaylistModal({ id: currentTrack.id, title: currentTrack.title })}
+                >
+                  <ListPlus size={24} />
+                </button>
+              )}
+              <button className="icon-btn"><Star size={24} /></button>
+            </div>
           </header>
 
           <main className="expanded-content">

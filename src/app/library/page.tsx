@@ -4,16 +4,19 @@ import React, { useState, useEffect } from 'react';
 import ContentCard from '@/components/ui/ContentCard';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useSession } from 'next-auth/react';
-import { Music, Heart, Clock, Download, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Music, Heart, Clock, Download, Loader2, Coins, List } from 'lucide-react';
+import FractionalEarnings from '@/components/library/FractionalEarnings';
 
 export default function LibraryPage() {
   const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState<'owned' | 'likes' | 'recent'>('owned');
+  const [activeTab, setActiveTab] = useState<'owned' | 'likes' | 'recent' | 'earnings' | 'playlists'>('owned');
   const [libraryData, setLibraryData] = useState<{
     owned: any[];
     likes: any[];
     recent: any[];
-  }>({ owned: [], likes: [], recent: [] });
+    playlists: any[];
+  }>({ owned: [], likes: [], recent: [], playlists: [] });
   const [isLoading, setIsLoading] = useState(true);
 
   const { setCurrentTrack, setQueue } = usePlayerStore();
@@ -30,7 +33,8 @@ export default function LibraryPage() {
             setLibraryData({
               owned: data.owned || [],
               likes: data.likes || [],
-              recent: data.recent || []
+              recent: data.recent || [],
+              playlists: data.playlists || []
             });
             
             // Default tab navigation
@@ -129,6 +133,18 @@ export default function LibraryPage() {
           >
             <Clock size={18} /> Recents
           </button>
+          <button 
+            className={activeTab === 'playlists' ? 'active' : ''} 
+            onClick={() => setActiveTab('playlists')}
+          >
+            <List size={18} /> Playlists
+          </button>
+          <button 
+            className={activeTab === 'earnings' ? 'active' : ''} 
+            onClick={() => setActiveTab('earnings')}
+          >
+            <Coins size={18} /> Earnings
+          </button>
         </div>
       </header>
 
@@ -140,9 +156,38 @@ export default function LibraryPage() {
           </div>
         ) : (
           <>
-            {activeTab === 'owned' && renderSection("My Collection", <Download size={24} />, libraryData.owned, "No owned items yet. Visit Explore to discover new music!")}
+            {activeTab === 'owned' && renderSection("My Collection", <Download size={24} />, libraryData.owned, "No owned items yet. Visit Explore to discover new music!", true)}
             {activeTab === 'likes' && renderSection("Favorites", <Heart size={24} />, libraryData.likes, "You haven't liked any songs yet.", true)}
             {activeTab === 'recent' && renderSection("Recently Played", <Clock size={24} />, libraryData.recent, "Your listening history will appear here.", true)}
+            {activeTab === 'playlists' && (
+              <div className="library-section animate-fade-in">
+                <div className="section-header">
+                  <List size={24} />
+                  <h3>My Playlists</h3>
+                  <span className="count-badge">{libraryData.playlists?.length || 0}</span>
+                </div>
+                {libraryData.playlists?.length > 0 ? (
+                  <div className="grid-container">
+                    {libraryData.playlists.map((p) => (
+                      <Link href={`/playlists/${p.id}`} key={p.id} className="playlist-card glass">
+                        <div className="playlist-art">
+                          <Music size={48} opacity={0.2} />
+                        </div>
+                        <div className="playlist-info">
+                          <h4>{p.title}</h4>
+                          <p>{p._count?.items || 0} songs</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-card glass">
+                    <p>No playlists yet. Start by adding a song to a new playlist!</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {activeTab === 'earnings' && <FractionalEarnings />}
           </>
         )}
       </main>
@@ -217,6 +262,36 @@ export default function LibraryPage() {
           display: flex;
           flex-direction: column;
           gap: 1rem;
+        }
+        .playlist-card {
+          padding: 1rem;
+          border-radius: 1.5rem;
+          text-decoration: none;
+          color: white;
+          transition: var(--transition);
+        }
+        .playlist-card:hover {
+          background: rgba(255,255,255,0.08);
+          transform: translateY(-5px);
+        }
+        .playlist-art {
+          aspect-ratio: 1/1;
+          background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+          border-radius: 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 1rem;
+          color: var(--primary);
+        }
+        .playlist-info h4 {
+          font-size: 1rem;
+          margin: 0 0 0.25rem 0;
+        }
+        .playlist-info p {
+          font-size: 0.8rem;
+          opacity: 0.5;
+          margin: 0;
         }
         .empty-card {
           padding: 4rem;

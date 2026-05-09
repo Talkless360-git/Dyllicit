@@ -24,30 +24,31 @@ export async function GET() {
     });
 
     if (pendingSettlements.length === 0) {
-      return NextResponse.json({ success: true, message: 'No pending payouts', artists: [], amounts: [] });
+      return NextResponse.json({ success: true, message: 'No pending payouts', artists: [], amounts: [], tokenIds: [] });
     }
 
-    // Group and prepare for contract call
-    const batch = pendingSettlements.reduce((acc: Record<string, bigint>, curr) => {
-      const address = curr.artist.payoutAddress || curr.artist.address;
-      if (!address) return acc;
-      
-      if (!acc[address]) {
-        acc[address] = BigInt(0);
-      }
-      // Convert payoutAmount (ETH) to Wei
-      const amountWei = ethers.parseEther(curr.payoutAmount.toString());
-      acc[address] += amountWei;
-      return acc;
-    }, {});
+    // Prepare parallel arrays for the contract
+    const artists: string[] = [];
+    const amounts: string[] = [];
+    const tokenIds: string[] = [];
+    const settlementIds: string[] = [];
 
-    const artists = Object.keys(batch);
-    const amounts = Object.values(batch).map(v => v.toString());
+    pendingSettlements.forEach(curr => {
+      const address = curr.artist.payoutAddress || curr.artist.address;
+      if (!address) return;
+
+      artists.push(address);
+      amounts.push(ethers.parseEther(curr.payoutAmount.toString()).toString());
+      tokenIds.push(curr.tokenId || "0"); // 0 for default
+      settlementIds.push(curr.id);
+    });
 
     return NextResponse.json({
       success: true,
       artists,
       amounts,
+      tokenIds,
+      settlementIds,
       count: artists.length,
       rawSettlements: pendingSettlements
     });
@@ -71,19 +72,46 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing transaction hash or settlement IDs' }, { status: 400 });
     }
 
-    // 1. Mark settlements as paid
-    await prisma.artistSettlement.updateMany({
-      where: {
-        id: { in: settlementIds }
-      },
-      data: {
-        isPaid: true
+    // --- SECURITY FIX: Verify transaction on-chain ---
+    const { verifyTransaction } = await import('@/lib/blockchain/verify');
+    // We expect the transaction to come from the admin wallet
+    const adminWallet = process.env.ADMIN_WALLET_ADDRESS;
+    const verification = await verifyTransaction(txHash, adminWallet);
+
+    if (!verification.success) {
+      return NextResponse.json({ 
+        error: 'Blockchain transaction verification failed. The transaction may not exist, failed, or was sent from an unauthorized address.',
+        details: verification.receipt ? 'Transaction status: failed' : 'Transaction not found'
+      }, { status: 400 });
+    }
+    // ------------------------------------------------
+
+    // 1. Fetch settlements to know how much to decrement
+    const settlementsToPay = await prisma.artistSettlement.findMany({
+      where: { id: { in: settlementIds } }
+    });
+
+    // 2. Decrement artist balances and mark as paid
+    await prisma.$transaction(async (tx) => {
+      // Mark as paid
+      await tx.artistSettlement.updateMany({
+        where: { id: { in: settlementIds } },
+        data: { isPaid: true }
+      });
+
+      // Decrement balances
+      for (const settlement of settlementsToPay) {
+        await tx.user.update({
+          where: { id: settlement.artistId },
+          data: {
+            royaltyBalance: { decrement: settlement.payoutAmount },
+            totalPaidOut: { increment: settlement.payoutAmount }
+          }
+        });
       }
     });
 
-    // 2. We should also record the transaction
-    // For simplicity in this demo, we'll assume the admin is one user
-    // In a real app, you'd link this to the actual admin's user record
+    // 2. Record the transaction
     const admin = await prisma.user.findFirst({
       where: { role: 'ADMIN' }
     });
@@ -93,7 +121,7 @@ export async function POST(req: Request) {
         data: {
           hash: txHash,
           type: 'royalty',
-          amount: 0, // Total amount could be calculated if needed
+          amount: 0, 
           userId: admin.id
         }
       });

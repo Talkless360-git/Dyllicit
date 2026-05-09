@@ -17,6 +17,10 @@ export async function GET() {
     const totalStreams = await prisma.stream.count();
     const totalTransactions = await prisma.transaction.count();
     
+    // Get total platform revenue (Admin's royalty balance)
+    const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    const platformRevenue = adminUser?.royaltyBalance || 0;
+    
     // Aggregate streams by day (last 7 days)
     const streamsByDay = await prisma.stream.groupBy({
       by: ['timestamp'],
@@ -54,6 +58,7 @@ export async function GET() {
         totalMedia,
         totalStreams,
         totalTransactions,
+        platformRevenue,
         recentTransactions,
         topMedia
       }

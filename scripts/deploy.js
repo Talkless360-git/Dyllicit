@@ -25,6 +25,11 @@ async function main() {
   const subAddress = await subscription.getAddress();
   console.log("ChainStreamSubscription deployed to:", subAddress);
 
+  // Link them up!
+  const tx = await subscription.setNFTContract(nftAddress);
+  await tx.wait();
+  console.log("Linked Subscription to NFT Contract!");
+
   // Save the contract address and ABI to the frontend
   const contractsDir = path.join(__dirname, "..", "src", "lib", "blockchain", "contracts");
 

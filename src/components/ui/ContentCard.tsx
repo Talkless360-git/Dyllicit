@@ -1,9 +1,11 @@
+import React from 'react';
 import { getIPFSUrl } from '@/lib/ipfs/utils';
 import { usePlayerStore } from '@/store/usePlayerStore';
-import { Play, Lock } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { useUIStore } from '@/store/useUIStore';
+import { Play, Lock, Plus } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSession } from 'next-auth/react';
 
 interface ContentCardProps {
   id: string;
@@ -24,6 +26,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
 }) => {
   const { data: session } = useSession();
   const { setCurrentTrack } = usePlayerStore();
+  const { openPlaylistModal } = useUIStore();
   const safeThumbnail = getIPFSUrl(thumbnailUrl) || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop';
 
   const isSubscriber = session?.user?.isSubscribed;
@@ -72,8 +75,20 @@ const ContentCard: React.FC<ContentCardProps> = ({
         </div>
         <div className="info-bottom">
            <Link href={`/media/${id}`} className="details-link">
-            Explore & Community
+            Explore
           </Link>
+          {session && (
+            <button 
+              className="add-playlist-btn" 
+              onClick={(e) => {
+                e.stopPropagation();
+                openPlaylistModal({ id, title });
+              }}
+              title="Add to Playlist"
+            >
+              <Plus size={16} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -276,6 +291,33 @@ const ContentCard: React.FC<ContentCardProps> = ({
           background: rgba(255,255,255,0.05);
           padding: 0.5rem 1rem;
           border-radius: 2rem;
+        }
+
+        .add-playlist-btn {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: white;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          opacity: 0.6;
+        }
+
+        .add-playlist-btn:hover {
+          background: var(--primary);
+          border-color: var(--primary);
+          opacity: 1;
+          transform: scale(1.1);
+          box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .grid .add-playlist-btn {
+          margin-left: auto;
         }
       `}</style>
     </div>

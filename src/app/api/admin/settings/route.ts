@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   } catch (error: any) {
     console.error("DB Error fetching settings:", error);
     return NextResponse.json({ 
-      settings: { platformFee: 2.5, defaultRoyalty: 5.0, subscriptionFee: 0.01 },
+      settings: { platformFee: 2.5, defaultRoyalty: 5.0, subscriptionFee: 0.01, platformMintingFee: 0 },
       dbError: true 
     });
   }
@@ -27,13 +27,13 @@ export async function PUT(req: Request) {
   if (!session || session.user?.role !== 'ADMIN') return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { platformFee, defaultRoyalty, subscriptionFee } = body;
+  const { platformFee, defaultRoyalty, subscriptionFee, platformMintingFee } = body;
 
   try {
     const settings = await prisma.globalSettings.upsert({
       where: { id: "global" },
-      update: { platformFee, defaultRoyalty, subscriptionFee },
-      create: { id: "global", platformFee, defaultRoyalty, subscriptionFee }
+      update: { platformFee, defaultRoyalty, subscriptionFee, platformMintingFee },
+      create: { id: "global", platformFee, defaultRoyalty, subscriptionFee, platformMintingFee }
     });
     return NextResponse.json({ success: true, settings });
   } catch (error: any) {

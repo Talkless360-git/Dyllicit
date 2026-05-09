@@ -1,5 +1,5 @@
 {
-  "address": "0x217Df093481416d1D13c7b934e4C04755097F975",
+  "address": "0x11021bAB372a352c8D96d540a04810d3CA5ccd7b",
   "abi": [
     {
       "type": "constructor",
@@ -52,6 +52,74 @@
     {
       "type": "event",
       "anonymous": false,
+      "name": "FractionalConfigUpdated",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "bps",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "FractionalRoyaltyAllocated",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "amount",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "FractionalRoyaltyClaimed",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "user",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "amount",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "NFTContractUpdated",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "newContract",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
       "name": "OwnershipTransferred",
       "inputs": [
         {
@@ -93,7 +161,7 @@
     {
       "type": "event",
       "anonymous": false,
-      "name": "RoyaltiesBatchCompleted",
+      "name": "RoyaltiesAllocated",
       "inputs": [
         {
           "type": "uint256",
@@ -179,6 +247,57 @@
     },
     {
       "type": "function",
+      "name": "accumulatedPerShare",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "claimFractionalRoyalties",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "_tokenId"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "fractionalRoyaltyBps",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
       "name": "isSubscribed",
       "constant": true,
       "stateMutability": "view",
@@ -217,6 +336,43 @@
     },
     {
       "type": "function",
+      "name": "lastAccumulatedPerShare",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        },
+        {
+          "type": "address",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "nftContract",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
       "name": "owner",
       "constant": true,
       "stateMutability": "view",
@@ -242,9 +398,32 @@
         {
           "type": "uint256[]",
           "name": "amounts"
+        },
+        {
+          "type": "uint256[]",
+          "name": "tokenIds"
         }
       ],
       "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "pendingRoyalties",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
     },
     {
       "type": "function",
@@ -277,6 +456,36 @@
         {
           "type": "uint256",
           "name": "_duration"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "setFractionalConfig",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "_tokenId"
+        },
+        {
+          "type": "uint256",
+          "name": "_bps"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "setNFTContract",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_nft"
         }
       ],
       "outputs": []
@@ -393,6 +602,14 @@
     {
       "type": "function",
       "name": "withdraw",
+      "constant": false,
+      "payable": false,
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "withdrawRoyalties",
       "constant": false,
       "payable": false,
       "inputs": [],

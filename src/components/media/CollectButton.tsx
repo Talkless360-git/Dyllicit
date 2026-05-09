@@ -16,14 +16,23 @@ interface CollectButtonProps {
   isOwned?: boolean;
 }
 
-export default function CollectButton({ mediaId, tokenId, price, isOwned = false }: CollectButtonProps) {
+export default function CollectButton({ mediaId, tokenId, price, isOwned }: CollectButtonProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const { isConnected, address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const targetChainId = 6343; // MegaETH Carrot
+
+  // All hooks must be called before this return
+  if (!mounted) return null;
 
   const handleCollect = async () => {
     if (!isConnected) {
@@ -66,7 +75,8 @@ export default function CollectButton({ mediaId, tokenId, price, isOwned = false
     }
   };
 
-  if (success || isOwned) {
+  // If it's a single edition, show 'Owned'
+  if ((success || isOwned) && (!mediaId || price === 0)) {
     return (
       <div className="collect-success glass animate-fade-in" style={{ padding: '0.75rem 1.5rem', borderRadius: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', border: '1px solid var(--success)', background: 'rgba(16, 185, 129, 0.1)', minWidth: '200px', justifyContent: 'center' }}>
         <CheckCircle size={20} color="#10b981" />
@@ -84,7 +94,7 @@ export default function CollectButton({ mediaId, tokenId, price, isOwned = false
       style={{ minWidth: '200px' }}
     >
       {loading ? <Loader2 size={20} className="animate-spin" /> : <ShoppingBag size={20} />}
-      {loading ? 'Processing...' : `Collect NFT (${price} ETH)`}
+      {loading ? 'Processing...' : (isOwned ? `Buy Another Share (${price} ETH)` : `Collect NFT (${price} ETH)`)}
     </Button>
   );
 }

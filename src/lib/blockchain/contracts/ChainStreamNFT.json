@@ -1,5 +1,5 @@
 {
-  "address": "0x95f1e4E3fAA6A1ba619c04d7189f70D2dc89a90A",
+  "address": "0x44eBBedDC91A15a48D2ED9841e42C29435371D50",
   "abi": [
     {
       "type": "constructor",
@@ -207,6 +207,23 @@
     {
       "type": "event",
       "anonymous": false,
+      "name": "FeesWithdrawn",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "admin",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "amount",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
       "name": "GlobalRoyaltyUpdated",
       "inputs": [
         {
@@ -246,7 +263,7 @@
         {
           "type": "uint256",
           "name": "tokenId",
-          "indexed": false
+          "indexed": true
         },
         {
           "type": "uint256",
@@ -256,6 +273,11 @@
         {
           "type": "string",
           "name": "uri",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "feePaid",
           "indexed": false
         }
       ]
@@ -273,11 +295,16 @@
         {
           "type": "uint256",
           "name": "tokenId",
-          "indexed": false
+          "indexed": true
         },
         {
           "type": "uint256",
           "name": "price",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "adminCut",
           "indexed": false
         }
       ]
@@ -296,6 +323,40 @@
           "type": "address",
           "name": "newOwner",
           "indexed": true
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "PlatformFeeCollected",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "from",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "amount",
+          "indexed": false
+        },
+        {
+          "type": "string",
+          "name": "feeType",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "PlatformMintingFeeUpdated",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "newFee",
+          "indexed": false
         }
       ]
     },
@@ -545,7 +606,8 @@
       "type": "function",
       "name": "mint",
       "constant": false,
-      "payable": false,
+      "stateMutability": "payable",
+      "payable": true,
       "inputs": [
         {
           "type": "address",
@@ -603,6 +665,20 @@
       "outputs": [
         {
           "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "platformMintingFee",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "uint256",
           "name": ""
         }
       ]
@@ -763,6 +839,19 @@
     },
     {
       "type": "function",
+      "name": "setPlatformMintingFee",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "_fee"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
       "name": "setURI",
       "constant": false,
       "payable": false,
@@ -894,6 +983,14 @@
           "name": ""
         }
       ]
+    },
+    {
+      "type": "function",
+      "name": "withdrawFees",
+      "constant": false,
+      "payable": false,
+      "inputs": [],
+      "outputs": []
     }
   ]
 }

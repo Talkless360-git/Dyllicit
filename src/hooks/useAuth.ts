@@ -6,7 +6,12 @@ import { SiweMessage } from 'siwe';
 import { signIn } from 'next-auth/react';
 import { useAuthStore } from '@/store/useAuthStore';
 
-export function useAuth() {
+export function useAuth(): { 
+  login: () => Promise<void>; 
+  logout: () => void; 
+  error: string | null; 
+  isConnecting: boolean; 
+} {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
