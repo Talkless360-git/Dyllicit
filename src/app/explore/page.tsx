@@ -59,7 +59,8 @@ export default function ExplorePage() {
       thumbnailUrl: item.thumbnailUrl,
       isGated: item.isGated,
       type: item.type,
-      tokenId: item.nft?.tokenId
+      tokenId: item.nft?.tokenId,
+      lyrics: item.lyrics
     }));
     setQueue(queueTracks);
   };
@@ -142,6 +143,7 @@ export default function ExplorePage() {
               isGated={item.isGated}
               type={item.type}
               tokenId={item.nft?.tokenId}
+              lyrics={item.lyrics}
               layout={viewMode}
               onPlay={handlePlayTrack}
             />

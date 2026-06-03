@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
-import { Download, CheckCircle, Loader2 } from "lucide-react";
+import { Download, CheckCircle, Loader2, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 
-export default function DownloadButton({ trackUrl }: { trackUrl: string }) {
+export default function DownloadButton({ trackUrl }: { trackUrl: string | null }) {
   const [downloaded, setDownloaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const { data: session } = useSession();
 
   useEffect(() => {
-    if (!window.caches) return;
+    if (!window.caches || !trackUrl) return;
     caches.open('chainstream-offline-media-v1').then(cache => {
       cache.match(trackUrl).then(res => {
         if (res) setDownloaded(true);
@@ -20,6 +20,7 @@ export default function DownloadButton({ trackUrl }: { trackUrl: string }) {
   }, [trackUrl]);
 
   const handleDownload = async () => {
+    if (!trackUrl) return;
     if (!session) return alert("Must be signed in to download.");
     
     // Validate subscription
@@ -48,6 +49,10 @@ export default function DownloadButton({ trackUrl }: { trackUrl: string }) {
       setLoading(false);
     }
   };
+
+  if (!trackUrl) {
+    return <Button variant="outline" size="sm" disabled style={{ opacity: 0.5 }}><Lock size={16} /> Gated Download</Button>;
+  }
 
   if (downloaded) {
     return <Button variant="secondary" size="sm" disabled><CheckCircle size={16} /> Saved Offline</Button>;

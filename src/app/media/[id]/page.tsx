@@ -28,6 +28,11 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
   if (!media) return notFound();
 
   const isOwned = media.nfts.length > 0;
+  const isAuthor = session?.user?.id === media.authorId;
+  const isSubscriber = session?.user?.isSubscribed === true;
+  const isAuthorized = !media.isGated || isAuthor || isSubscriber || isOwned;
+
+  const securedUrl = isAuthorized ? media.url : null;
 
   return (
     <div style={{ padding: "6rem 2rem", maxWidth: "1200px", margin: "0 auto", color: "white" }}>
@@ -38,7 +43,11 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
            ) : (
              <div className="placeholder-artwork"><PlayCircle size={64} opacity={0.3} /></div>
            )}
-           {media.isGated && <div className="gated-badge"><Lock size={16} /> NFT GATED</div>}
+           {media.isGated && (
+             <div className="gated-badge" style={{ background: isAuthorized ? "#10b981" : "#eab308" }}>
+               <Lock size={16} /> {isAuthorized ? "UNLOCKED" : "SUBSCRIBER GATED"}
+             </div>
+           )}
         </div>
         
         <div className="media-info">
@@ -51,7 +60,7 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
           <div style={{ marginTop: "1rem", color: "rgba(255,255,255,0.7)", maxWidth: "600px", lineHeight: "1.6" }}>
             {media.description || "No description provided."}
           </div>
-
+ 
           <div className="action-buttons">
               {media.price && media.price > 0 && media.tokenId && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -80,7 +89,7 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
                   )}
                 </div>
               )}
-             <DownloadButton trackUrl={media.url} />
+             <DownloadButton trackUrl={securedUrl} />
           </div>
         </div>
       </div>

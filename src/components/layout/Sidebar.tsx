@@ -37,7 +37,7 @@ const Sidebar: React.FC = () => {
         { name: 'Discover', href: '/explore', icon: Compass },
         { name: 'Search', href: '/search', icon: Search },
         { name: 'Library', href: '/library', icon: Library },
-        { name: 'Premium', href: '/subscription', icon: Star },
+        ...(!user?.isSubscribed ? [{ name: 'Premium', href: '/subscription', icon: Star }] : []),
         ...(user?.role === 'ARTIST' ? [
           { name: 'Mint', href: '/mint', icon: PlusCircle },
           { name: 'Studio', href: '/artist', icon: Music2 }
@@ -111,7 +111,11 @@ const Sidebar: React.FC = () => {
                 </div>
                 <div style={{ overflow: 'hidden' }}>
                   <p style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name || user.email}</p>
-                  <p style={{ fontSize: '0.7rem', opacity: 0.5, margin: 0 }}>{user.role}</p>
+                  <p style={{ fontSize: '0.7rem', opacity: 0.5, margin: 0 }}>
+                    {user.isSubscribed 
+                      ? (user.role === 'ARTIST' ? 'Artist (Premium)' : 'Premium Listener') 
+                      : user.role}
+                  </p>
                 </div>
               </div>
               

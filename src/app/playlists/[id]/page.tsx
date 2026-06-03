@@ -49,7 +49,8 @@ export default function PlaylistDetailPage() {
       thumbnailUrl: item.media.thumbnailUrl,
       isGated: item.media.isGated,
       type: item.media.type,
-      tokenId: item.media.tokenId
+      tokenId: item.media.tokenId,
+      lyrics: item.media.lyrics
     }));
 
     setQueue(tracks);

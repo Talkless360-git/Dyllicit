@@ -62,7 +62,8 @@ export default function LibraryPage() {
       url: item.url,
       thumbnailUrl: item.thumbnailUrl,
       isGated: item.isGated,
-      type: item.type
+      type: item.type,
+      lyrics: item.lyrics
     }));
     setQueue(queueTracks);
   };
@@ -97,6 +98,7 @@ export default function LibraryPage() {
               thumbnailUrl={item.thumbnailUrl}
               isGated={item.isGated}
               type={item.type}
+              lyrics={item.lyrics}
               layout={isList ? 'list' : 'grid'}
               onPlay={(t) => handlePlayTrack(t, data)}
             />

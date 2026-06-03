@@ -17,6 +17,7 @@ export default function SubscriptionPage() {
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fee, setFee] = useState("0.01");
+  const [stripeLoading, setStripeLoading] = useState<string | null>(null);
 
   // Read live price from blockchain
   const { data: onChainPrice } = useReadContract({
@@ -38,12 +39,17 @@ export default function SubscriptionPage() {
       .then(subData => {
         setSubscribed(subData.subscribed);
         setLoading(false);
+        
+        // Sync NextAuth session if DB subscription status is out-of-sync
+        if (subData.subscribed && session && !session.user?.isSubscribed) {
+          update();
+        }
       })
       .catch(e => {
         console.error("Failed to fetch subscription status:", e);
         setLoading(false);
       });
-  }, []);
+  }, [session, update]);
 
   const { writeContractAsync, isPending } = useWriteContract();
   const [activeHash, setActiveHash] = useState<string | null>(null);
@@ -78,6 +84,27 @@ export default function SubscriptionPage() {
     } catch (err) {
       console.error("API call error:", err);
       setIsVerifying(false);
+    }
+  };
+
+  const handleStripeCheckout = async (plan: 'monthly' | 'yearly') => {
+    setStripeLoading(plan);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+    } catch (err: any) {
+      console.error("Stripe checkout error:", err);
+      alert(`Stripe Error: ${err.message}`);
+      setStripeLoading(null);
     }
   };
 
@@ -162,70 +189,109 @@ export default function SubscriptionPage() {
         </div>
       ) : (
         <div className="pricing-layout animate-slide-up">
+          {/* Monthly Plan */}
           <div className="pricing-card glass highlight">
             <div className="tier-info">
-              <h3>Monthly Pass</h3>
+              <h3>Monthly Premium</h3>
               <div className="price">
-                <span className="amount">{fee} ETH</span>
+                <span className="amount">$9.99</span>
                 <span className="period">/ month</span>
               </div>
+              <p className="eth-price">or {fee} ETH</p>
             </div>
 
             <div className="benefits-list">
               <div className="benefit">
                 <Music size={20} className="icon" />
                 <div>
-                  <strong>Unlimited Ad-Free Music</strong>
-                  <p>Interrupt-free listening across all devices.</p>
-                </div>
-              </div>
-              <div className="benefit">
-                <Download size={20} className="icon" />
-                <div>
-                  <strong>Offline Playback</strong>
-                  <p>Keep your favorites playable even without internet.</p>
+                  <strong>Unlimited Streaming</strong>
+                  <p>Ad-free listening on all devices.</p>
                 </div>
               </div>
               <div className="benefit">
                 <Zap size={20} className="icon" />
                 <div>
-                  <strong>Artist Royalties+</strong>
-                  <p>30% more of your streaming revenue goes to artists.</p>
+                  <strong>Artist Support</strong>
+                  <p>Highest payout rates for your favorite creators.</p>
                 </div>
-              </div>
-              <div className="benefit">
-                 <Shield size={20} className="icon" />
-                 <div>
-                   <strong>Exclusive Media Access</strong>
-                   <p>Early access to drops and NFT-gated tracks.</p>
-                 </div>
               </div>
             </div>
 
-            <Button 
-              variant="primary" 
-              size="lg" 
-              onClick={handleSubscribe} 
-              disabled={isPending || isVerifying}
-              className="subscribe-btn"
-              fullWidth
-            >
-              {isPending || isVerifying ? <Loader2 className="animate-spin" /> : "Subscribe with Wallet"}
-            </Button>
-            
-            {activeHash && !subscribed && !isVerifying && (
+            <div className="action-buttons">
               <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => syncSubscription(activeHash)}
-                style={{ marginTop: '1rem' }}
+                variant="primary" 
+                size="lg" 
+                onClick={() => handleStripeCheckout('monthly')} 
+                disabled={isPending || isVerifying || stripeLoading === 'monthly'}
                 fullWidth
               >
-                Transaction pending? Click to Sync Manually
+                {stripeLoading === 'monthly' ? <Loader2 className="animate-spin" /> : "Pay with Card"}
               </Button>
-            )}
+              
+              <Button 
+                variant="outline" 
+                size="lg" 
+                onClick={handleSubscribe} 
+                disabled={isPending || isVerifying || !!stripeLoading}
+                fullWidth
+              >
+                {isPending || isVerifying ? <Loader2 className="animate-spin" /> : "Subscribe with Wallet"}
+              </Button>
+            </div>
             
-            <p className="footer-note">Secure on-chain transaction. Gas fees apply.</p>
+            <p className="footer-note">Secure payments via Stripe or Polygon.</p>
+          </div>
+
+          {/* Yearly Plan */}
+          <div className="pricing-card glass highlight yearly">
+            <div className="save-badge">SAVE 20%</div>
+            <div className="tier-info">
+              <h3>Yearly Premium</h3>
+              <div className="price">
+                <span className="amount">$99.99</span>
+                <span className="period">/ year</span>
+              </div>
+              <p className="eth-price">or {(parseFloat(fee) * 10).toFixed(2)} ETH</p>
+            </div>
+
+            <div className="benefits-list">
+               <div className="benefit">
+                <Star size={20} className="icon" />
+                <div>
+                  <strong>All Monthly Features</strong>
+                  <p>Plus exclusive yearly-only NFT drops.</p>
+                </div>
+              </div>
+              <div className="benefit">
+                <Shield size={20} className="icon" />
+                <div>
+                  <strong>Priority Access</strong>
+                  <p>Skip the queue for new media releases.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="action-buttons">
+              <Button 
+                variant="primary" 
+                size="lg" 
+                onClick={() => handleStripeCheckout('yearly')} 
+                disabled={isPending || isVerifying || stripeLoading === 'yearly'}
+                fullWidth
+              >
+                {stripeLoading === 'yearly' ? <Loader2 className="animate-spin" /> : "Pay with Card"}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="lg" 
+                onClick={() => alert("Yearly wallet subscription coming soon!")} 
+                disabled={isPending || isVerifying || !!stripeLoading}
+                fullWidth
+              >
+                Subscribe with Wallet
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -287,14 +353,45 @@ export default function SubscriptionPage() {
         .pricing-layout {
           display: flex;
           justify-content: center;
+          gap: 2rem;
+          flex-wrap: wrap;
         }
         .pricing-card {
-          width: 100%;
-          max-width: 500px;
+          flex: 1;
+          min-width: 320px;
+          max-width: 450px;
           padding: 3rem;
           border-radius: 2rem;
           position: relative;
           overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .yearly {
+          border: 1px solid var(--primary) !important;
+          background: rgba(139, 92, 246, 0.05);
+        }
+        .save-badge {
+          position: absolute;
+          top: 1.5rem;
+          right: -2rem;
+          background: #10b981;
+          color: white;
+          padding: 0.5rem 3rem;
+          font-size: 0.75rem;
+          font-weight: 800;
+          transform: rotate(45deg);
+        }
+        .eth-price {
+          font-size: 0.9rem;
+          opacity: 0.5;
+          margin-top: 0.25rem;
+        }
+        .action-buttons {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-top: auto;
         }
         .pricing-card.highlight {
           border: 1px solid rgba(139, 92, 246, 0.3);

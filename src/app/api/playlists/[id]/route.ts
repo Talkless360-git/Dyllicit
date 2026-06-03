@@ -14,7 +14,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         items: {
           include: {
             media: {
-              include: { author: { select: { name: true, address: true } } }
+              include: { 
+                author: { select: { name: true, address: true } },
+                nfts: {
+                  where: { userId: session?.user?.id || 'none' }
+                }
+              }
             }
           },
           orderBy: { order: 'asc' }
@@ -29,7 +34,28 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: "Private playlist" }, { status: 403 });
     }
 
-    return NextResponse.json({ success: true, playlist });
+    // Secure/Redact Gated Media URLs in Playlist items
+    const securedItems = playlist.items.map(item => {
+      const isOwned = item.media.nfts.length > 0;
+      const isAuthor = session?.user?.id === item.media.authorId;
+      const isSubscriber = session?.user?.isSubscribed === true;
+      const isAuthorized = !item.media.isGated || isAuthor || isSubscriber || isOwned;
+
+      return {
+        ...item,
+        media: {
+          ...item.media,
+          url: isAuthorized ? item.media.url : null
+        }
+      };
+    });
+
+    const securedPlaylist = {
+      ...playlist,
+      items: securedItems
+    };
+
+    return NextResponse.json({ success: true, playlist: securedPlaylist });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

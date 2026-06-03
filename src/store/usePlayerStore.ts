@@ -10,6 +10,7 @@ interface Track {
   type: 'audio' | 'video';
   isGated: boolean;
   tokenId?: string;
+  lyrics?: string;
 }
 
 interface PlayerState {

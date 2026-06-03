@@ -50,7 +50,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const { title, description, type, url, thumbnailUrl, genre, isGated, authorId } = data;
+    const { title, description, type, url, thumbnailUrl, genre, isGated, authorId, lyrics } = data;
 
     const media = await prisma.media.create({
       data: {
@@ -62,6 +62,7 @@ export async function POST(req: Request) {
         genre,
         isGated,
         authorId,
+        lyrics,
       },
     });
 

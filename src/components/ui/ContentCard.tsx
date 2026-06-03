@@ -19,10 +19,11 @@ interface ContentCardProps {
   layout?: 'grid' | 'list';
   onPlay?: (track: any) => void;
   tokenId?: string;
+  lyrics?: string;
 }
 
 const ContentCard: React.FC<ContentCardProps> = ({ 
-  id, title, artist, authorId, thumbnailUrl, url, isGated: originalIsGated, type, layout = 'grid', onPlay, tokenId
+  id, title, artist, authorId, thumbnailUrl, url, isGated: originalIsGated, type, layout = 'grid', onPlay, tokenId, lyrics
 }) => {
   const { data: session } = useSession();
   const { setCurrentTrack } = usePlayerStore();
@@ -43,7 +44,7 @@ const ContentCard: React.FC<ContentCardProps> = ({
     const track = { 
       id, title, artist, authorId, 
       url: url || '', thumbnailUrl: safeThumbnail, 
-      type, isGated: effectiveIsGated, tokenId
+      type, isGated: effectiveIsGated, tokenId, lyrics
     };
     if (onPlay) {
       onPlay(track);

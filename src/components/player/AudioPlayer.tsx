@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useVisualizer } from '@/hooks/useVisualizer';
 import { useSession } from 'next-auth/react';
@@ -37,13 +37,58 @@ const AudioPlayer: React.FC = () => {
   const { openPlaylistModal } = useUIStore();
 
   const [isExpanded, setIsExpanded] = useState(false);
+  const [activeView, setActiveView] = useState<'cover' | 'lyrics'>('cover');
   const [localTime, setLocalTime] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const lyricRefs = useRef<(HTMLParagraphElement | null)[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Reset playhead when track changes
+  useEffect(() => {
+    setLocalTime(0);
+  }, [currentTrack?.id]);
+
+  // Memoize the parsed lyrics — recomputes only when lyrics text or audio duration changes.
+  // Returning null when duration is 0 and there are no timestamps forces a retry once
+  // onLoadedMetadata fires and duration becomes known.
+  const parsedLyrics = useMemo(() => {
+    const rawLyrics = currentTrack?.lyrics;
+    if (!rawLyrics || rawLyrics.trim() === '') return null;
+
+    const lines = rawLyrics.split('\n').map((l: string) => l.trim()).filter(Boolean);
+    const parsed = lines.map((line: string) => {
+      const timeMatch = line.match(/^\[(\d+):(\d+)(?:\.(\d+))?\]\s*(.*)/);
+      if (timeMatch) {
+        const m = parseInt(timeMatch[1], 10);
+        const s = parseInt(timeMatch[2], 10);
+        const msStr = timeMatch[3] || '0';
+        const ms = parseInt(msStr, 10);
+        const fraction = msStr.length === 2 ? ms / 100 : msStr.length === 1 ? ms / 10 : ms / 1000;
+        return { time: m * 60 + s + fraction, text: timeMatch[4].trim() };
+      }
+      return { time: -1, text: line };
+    });
+
+    const hasTimestamps = parsed.some((item: { time: number }) => item.time >= 0);
+    if (hasTimestamps) {
+      return parsed
+        .map((item: { time: number; text: string }) =>
+          item.time >= 0 ? item : { time: 0, text: item.text }
+        )
+        .sort((a: { time: number }, b: { time: number }) => a.time - b.time);
+    }
+
+    // No timestamps — spread evenly. Return null if duration not yet known.
+    if (!duration || duration <= 0) return null;
+    const lineDuration = duration / Math.max(lines.length, 1);
+    return lines.map((line: string, i: number) => ({ time: i * lineDuration, text: line }));
+  }, [currentTrack?.lyrics, duration]);
 
   // Check NFT Ownership on MegaETH
   const { data: nftBalance } = useReadContract({
@@ -135,6 +180,63 @@ const AudioPlayer: React.FC = () => {
     if (mediaRef.current) mediaRef.current.volume = volume;
   }, [volume, mediaRef]);
 
+  const activeLyricIndexRef = useRef(-1);
+
+  // Scroll active lyric into view — but ONLY when the lyrics pane is visible.
+  useEffect(() => {
+    if (activeView !== 'lyrics') return;
+    const idx = activeLyricIndexRef.current;
+    if (idx >= 0 && lyricRefs.current[idx]) {
+      lyricRefs.current[idx]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  }, [localTime, activeView]);
+
+  // High-frequency RAF loop: reads currentTime directly from the media element
+  // (~60fps) while the lyrics pane is open. This bypasses the browser's throttled
+  // onTimeUpdate (which can lag 250 ms+) for buttery-smooth lyric highlighting.
+  useEffect(() => {
+    const shouldUseRAF = isExpanded && activeView === 'lyrics' && isPlaying;
+
+    if (shouldUseRAF) {
+      const tick = () => {
+        const activeMedia = mediaRef.current;
+        if (activeMedia && !isDraggingRef.current) {
+          const ct = activeMedia.currentTime;
+          setLocalTime(ct);
+          setProgress((ct / (activeMedia.duration || 1)) * 100);
+        }
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    } else {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    }
+
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [isExpanded, activeView, isPlaying, mediaRef, setProgress]);
+
+  // onTimeUpdate — must be a useCallback ABOVE the guard to satisfy Rules of Hooks.
+  const onTimeUpdate = useCallback(() => {
+    // Skip if RAF loop is running (it provides higher-freq updates while lyrics are open)
+    if (isExpanded && activeView === 'lyrics' && isPlaying) return;
+    const activeMedia = mediaRef.current;
+    if (activeMedia && !isDraggingRef.current) {
+      setLocalTime(activeMedia.currentTime);
+      setProgress((activeMedia.currentTime / (activeMedia.duration || 1)) * 100);
+    }
+  }, [isExpanded, activeView, isPlaying, mediaRef, setProgress]);
+
   // Hydration guard - must be AFTER all hooks
   if (!mounted || !currentTrack) return null;
 
@@ -142,22 +244,29 @@ const AudioPlayer: React.FC = () => {
   const isAuthor = session?.user?.id === currentTrack?.authorId && !!currentTrack?.authorId;
   const isGated = currentTrack?.isGated && !isSubscriber && !isAuthor && !isOwner;
 
-  const lyrics = [
-    { time: 0, text: "Welcome to Dyllicit" },
-    { time: 5, text: "Feel the vibration of the block" },
+  const defaultLyrics = [
+    { time: 0,  text: "Welcome to Dyllicit" },
+    { time: 5,  text: "Feel the vibration of the block" },
     { time: 10, text: "Your music, your assets, your soul" },
-    { time: 15, text: "Streaming on the decentralized path" },
+    { time: 15, text: "Streaming on the decentralised path" },
     { time: 20, text: "No more middlemen, just the rhythm" },
     { time: 25, text: "Artists empowered, fans connected" },
     { time: 30, text: "Through the nodes and the smart contracts" },
     { time: 35, text: "We find the harmony of Web3" },
   ];
 
+  // parsedLyrics comes from useMemo above the guard — stable reference,
+  // only changes when track lyrics or audio duration changes.
+  const lyrics = parsedLyrics || defaultLyrics;
+
   const activeLyricIndex = lyrics.findIndex((l, i) => {
     const nextTime = lyrics[i + 1]?.time || Infinity;
     const currentTime = localTime || 0;
     return currentTime >= l.time && currentTime < nextTime;
   });
+
+  // Keep the ref in sync so the hoisted useEffect can scroll correctly
+  activeLyricIndexRef.current = activeLyricIndex;
 
   const formatTime = (seconds: number) => {
     if (!isFinite(seconds)) return '0:00';
@@ -187,13 +296,6 @@ const AudioPlayer: React.FC = () => {
     }
   };
 
-  const onTimeUpdate = () => {
-    const activeMedia = mediaRef.current;
-    if (activeMedia && !isDragging) {
-      setLocalTime(activeMedia.currentTime);
-      setProgress((activeMedia.currentTime / activeMedia.duration) * 100);
-    }
-  };
 
   const onLoadedMetadata = () => {
     const activeMedia = mediaRef.current;
@@ -202,9 +304,10 @@ const AudioPlayer: React.FC = () => {
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
-    setLocalTime((val / 100) * duration);
+    const newTime = (val / 100) * duration;
+    setLocalTime(newTime);
     if (mediaRef.current) {
-       mediaRef.current.currentTime = (val / 100) * duration;
+      mediaRef.current.currentTime = newTime;
     }
   };
 
@@ -273,8 +376,8 @@ const AudioPlayer: React.FC = () => {
                 max="100"
                 step="0.1"
                 value={progress}
-                onMouseDown={() => setIsDragging(true)}
-                onMouseUp={() => setIsDragging(false)}
+                onMouseDown={() => { setIsDragging(true); isDraggingRef.current = true; }}
+                onMouseUp={() => { setIsDragging(false); isDraggingRef.current = false; }}
                 onChange={handleSeek}
                 style={{
                   background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${progress}%, rgba(255, 255, 255, 0.1) ${progress}%, rgba(255, 255, 255, 0.1) 100%)`
@@ -327,14 +430,26 @@ const AudioPlayer: React.FC = () => {
             />
           </div>
 
-          <header className="expanded-header" style={{ padding: '2rem', display: 'flex', justifyContent: 'space-between' }}>
+          <header className="expanded-header" style={{ padding: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button onClick={() => setIsExpanded(false)} className="icon-btn" style={{ background: 'rgba(255,255,255,0.1)', padding: '0.5rem' }}>
               <ChevronDown size={32} />
             </button>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '2px' }}>Playing From</p>
-              <h5 style={{ margin: 0 }}>Dyllicit Discover</h5>
+            
+            <div className="player-view-switcher">
+              <button 
+                className={`switcher-btn ${activeView === 'cover' ? 'active' : ''}`}
+                onClick={() => setActiveView('cover')}
+              >
+                Canvas
+              </button>
+              <button 
+                className={`switcher-btn ${activeView === 'lyrics' ? 'active' : ''}`}
+                onClick={() => setActiveView('lyrics')}
+              >
+                Lyrics
+              </button>
             </div>
+
             <div style={{ display: 'flex', gap: '1rem' }}>
               {session && (
                 <button 
@@ -349,44 +464,70 @@ const AudioPlayer: React.FC = () => {
           </header>
 
           <main className="expanded-content">
-            <div className="expanded-artwork-side">
-              {currentTrack.type === 'video' ? (
-                <div className="video-container" style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', background: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.8)' }}>
-                  <video
-                    ref={videoRef}
-                    src={getIPFSUrl(currentTrack.url)}
-                    onTimeUpdate={onTimeUpdate}
-                    onLoadedMetadata={onLoadedMetadata}
-                    onEnded={nextTrack}
-                    controls
-                    style={{ width: '100%', aspectRatio: '16/9' }}
-                  />
+            {activeView === 'cover' ? (
+              <div className="expanded-artwork-side">
+                {currentTrack.type === 'video' ? (
+                  <div className="video-container" style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', background: '#000', boxShadow: '0 20px 60px rgba(0,0,0,0.8)' }}>
+                    <video
+                      ref={videoRef}
+                      src={getIPFSUrl(currentTrack.url)}
+                      onTimeUpdate={onTimeUpdate}
+                      onLoadedMetadata={onLoadedMetadata}
+                      onEnded={nextTrack}
+                      controls
+                      style={{ width: '100%', aspectRatio: '16/9' }}
+                    />
+                  </div>
+                ) : (
+                  <div className="artwork-glow-wrap">
+                    <div className="artwork-ambient-glow" style={{ backgroundImage: `url(${getIPFSUrl(currentTrack.thumbnailUrl)})` }}></div>
+                    <img 
+                      src={getIPFSUrl(currentTrack.thumbnailUrl) || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&h=800&fit=crop'} 
+                      className="big-artwork centered" 
+                      alt={currentTrack.title} 
+                    />
+                  </div>
+                )}
+                <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+                  <h2 style={{ fontSize: 'min(2.2rem, 4vh)', fontWeight: 800, margin: '0 0 0.25rem 0' }}>{currentTrack.title}</h2>
+                  <p style={{ fontSize: 'min(1.1rem, 2.5vh)', opacity: 0.7 }}>{currentTrack.artist}</p>
                 </div>
-              ) : (
-                <img 
-                  src={getIPFSUrl(currentTrack.thumbnailUrl) || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&h=800&fit=crop'} 
-                  className="big-artwork" 
-                  alt={currentTrack.title} 
-                  style={{ maxHeight: '35vh', width: 'auto' }}
-                />
-              )}
-              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                <h2 style={{ fontSize: 'min(2.2rem, 4vh)', fontWeight: 800, margin: '0 0 0.25rem 0' }}>{currentTrack.title}</h2>
-                <p style={{ fontSize: 'min(1.1rem, 2.5vh)', opacity: 0.7 }}>{currentTrack.artist}</p>
               </div>
-            </div>
-
-            <div className="expanded-lyrics-side">
-              {lyrics.map((line, i) => (
-                <p 
-                  key={i} 
-                  className={`lyric-line ${activeLyricIndex === i ? 'active' : ''}`}
-                  style={{ fontSize: 'min(1.4rem, 3.5vh)', marginBottom: 'min(1.5rem, 2.5vh)' }}
-                >
-                  {line.text}
-                </p>
-              ))}
-            </div>
+            ) : (
+              <div className="expanded-lyrics-container">
+                <div className="mini-track-header">
+                  <img 
+                    src={getIPFSUrl(currentTrack.thumbnailUrl) || '/placeholder-music.jpg'} 
+                    alt={currentTrack.title} 
+                    className="mini-header-thumb"
+                    onError={(e) => (e.currentTarget.src = 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop')}
+                  />
+                  <div>
+                    <h3>{currentTrack.title}</h3>
+                    <p>{currentTrack.artist}</p>
+                  </div>
+                </div>
+                
+                <div className="expanded-lyrics-side full-width">
+                  {lyrics.map((line, i) => (
+                    <p 
+                      key={i} 
+                      ref={el => { lyricRefs.current[i] = el; }}
+                      className={`lyric-line ${activeLyricIndex === i ? 'active' : ''}`}
+                      onClick={() => {
+                        if (line.time >= 0 && mediaRef.current) {
+                          mediaRef.current.currentTime = line.time;
+                          setLocalTime(line.time);
+                        }
+                      }}
+                      style={{ cursor: line.time >= 0 ? 'pointer' : 'default' }}
+                    >
+                      {line.text}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
           </main>
 
           <footer className="expanded-controls-bar" style={{ padding: '0 4rem 2rem 4rem', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
@@ -399,8 +540,8 @@ const AudioPlayer: React.FC = () => {
                 max="100"
                 step="0.1"
                 value={progress}
-                onMouseDown={() => setIsDragging(true)}
-                onMouseUp={() => setIsDragging(false)}
+                onMouseDown={() => { setIsDragging(true); isDraggingRef.current = true; }}
+                onMouseUp={() => { setIsDragging(false); isDraggingRef.current = false; }}
                 onChange={handleSeek}
                 style={{ 
                   height: '6px',
