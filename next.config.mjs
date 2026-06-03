@@ -15,7 +15,16 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://rpc.carrot.megaeth.systems https://carrot.megaeth.com https://ipfs.io http://localhost:3000 http://127.0.0.1:8545; img-src 'self' data: https://gateway.pinata.cloud https://ipfs.io https://images.unsplash.com; media-src 'self' https://gateway.pinata.cloud https://ipfs.io;",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "connect-src 'self' https://rpc.carrot.megaeth.systems https://carrot.megaeth.com https://ipfs.io https://api.stripe.com https://checkout.stripe.com http://localhost:3000 http://127.0.0.1:8545",
+              "img-src 'self' data: https://gateway.pinata.cloud https://ipfs.io https://images.unsplash.com https://*.stripe.com",
+              "media-src 'self' https://gateway.pinata.cloud https://ipfs.io",
+              "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+            ].join('; ') + ';',
           },
         ],
       },
