@@ -118,7 +118,7 @@ const AudioPlayer: React.FC = () => {
   // Record Stream History
   useEffect(() => {
     if (session && currentTrack && isPlaying) {
-      if (currentTrack.authorId === session.user.id) return;
+      if (currentTrack?.authorId === session.user.id) return;
 
       const recordStream = async () => {
         try {

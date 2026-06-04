@@ -21,6 +21,12 @@ const getHeaders = (): Record<string, string> => {
   throw new Error("Pinata credentials (JWT or API Key/Secret) are missing.");
 };
 
+// Type-safe helper to build headers from getHeaders() spread
+const buildHeaders = (extra?: Record<string, string>): HeadersInit => {
+  const base = getHeaders();
+  return extra ? { ...base, ...extra } : base;
+};
+
 const getGateway = () => {
   const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
   if (!gateway) return "https://gateway.pinata.cloud/ipfs";
@@ -50,9 +56,7 @@ export const uploadToIPFS = async (file: File | Blob, fileName?: string) => {
   try {
     const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
       method: "POST",
-      headers: {
-        ...getHeaders(),
-      } as HeadersInit,
+      headers: buildHeaders(),
       body: formData,
     });
     
@@ -77,10 +81,7 @@ export const uploadJSONToIPFS = async (json: object, name: string = 'metadata.js
   try {
     const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
       method: "POST",
-      headers: {
-        'Content-Type': 'application/json',
-        ...getHeaders(),
-      } as HeadersInit,
+      headers: buildHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         pinataContent: json,
         pinataMetadata: {

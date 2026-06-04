@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['viem', 'wagmi'],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'gateway.pinata.cloud' },
