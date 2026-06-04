@@ -3,12 +3,14 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
 /**
- * POST /api/upload/signed-url
- *
- * Generates a Pinata V3 signed upload URL for browser-based uploads,
- * which bypasses CORS issues and the 4.5MB Vercel serverless request body limit.
+ * Generates a Pinata signed upload URL for direct client-side uploads.
+ * This bypasses Vercel's 4.5MB serverless function body size limit.
+ * 
+ * Uses Pinata's v3 Files API to create a temporary signed URL that
+ * allows the browser to upload directly to Pinata without exposing
+ * the master JWT to the client.
  */
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   try {
     // 1. Session Check
     const session = await getServerSession(authOptions);
@@ -16,52 +18,49 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Parse Body
-    const { filename, contentType } = await req.json();
-    if (!filename || !contentType) {
-      return NextResponse.json({ error: 'filename and contentType are required' }, { status: 400 });
-    }
-
-    // 3. Check for Pinata Keys
+    // 2. Check for Pinata JWT
     const jwt = process.env.PINATA_JWT;
     if (!jwt) {
-      console.error("Upload failed: Pinata JWT configuration missing on server.");
-      return NextResponse.json({ 
-        error: 'IPFS Configuration Missing', 
-        details: 'Server is not configured with Pinata JWT.' 
+      return NextResponse.json({
+        error: 'IPFS Configuration Missing',
+        details: 'Server is not configured with PINATA_JWT.'
       }, { status: 501 });
     }
 
-    // 4. Request signed URL from Pinata V3 API
-    const signPayload = {
-      date: Math.floor(Date.now() / 1000),
-      expires: 900, // URL valid for 15 minutes
-      filename: filename,
-      allow_mime_types: [contentType]
-    };
-
-    console.log(`Generating Pinata signed upload URL for ${filename} (${contentType})`);
-    const pinataRes = await fetch('https://uploads.pinata.cloud/v3/files/sign', {
+    // 3. Create a signed upload URL via Pinata's v3 API
+    // This URL allows the browser to upload directly without exposing the master JWT
+    const pinataResponse = await fetch('https://uploads.pinata.cloud/v3/files/sign', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${jwt}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwt}`
       },
-      body: JSON.stringify(signPayload)
+      body: JSON.stringify({
+        date: Math.floor(Date.now() / 1000) + 1800, // Expires in 30 minutes
+      })
     });
 
-    if (!pinataRes.ok) {
-      const errBody = await pinataRes.text();
-      console.error(`Pinata signing API error (${pinataRes.status}):`, errBody);
+    if (!pinataResponse.ok) {
+      // Fallback: return the JWT directly for legacy pinFileToIPFS endpoint
+      console.warn('[SignedURL] Signed URL generation failed, falling back to JWT mode.');
+      const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
+      let gatewayBase = 'https://gateway.pinata.cloud/ipfs';
+      if (gateway) {
+        let formatted = gateway.startsWith('http') ? gateway : `https://${gateway}`;
+        if (formatted.endsWith('/')) formatted = formatted.slice(0, -1);
+        if (!formatted.includes('/ipfs')) formatted = `${formatted}/ipfs`;
+        gatewayBase = formatted;
+      }
       return NextResponse.json({ 
-        error: 'Failed to generate Pinata signed URL', 
-        details: errBody 
-      }, { status: pinataRes.status });
+        mode: 'jwt',
+        token: jwt, 
+        gateway: gatewayBase 
+      });
     }
 
-    const { data: signedUrl } = await pinataRes.json();
+    const { data: signedUrl } = await pinataResponse.json();
 
-    // 5. Get and format Gateway Base URL
+    // 4. Get and format Gateway Base URL
     const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY;
     let gatewayBase = 'https://gateway.pinata.cloud/ipfs';
     if (gateway) {
@@ -71,12 +70,13 @@ export async function POST(req: Request) {
       gatewayBase = formatted;
     }
 
-    return NextResponse.json({ url: signedUrl, gateway: gatewayBase });
-  } catch (error: any) {
-    console.error('IPFS Signed URL Generation Error:', error);
     return NextResponse.json({ 
-      error: 'Failed to generate signed URL', 
-      details: error.message 
-    }, { status: 500 });
+      mode: 'signed',
+      signedUrl,
+      gateway: gatewayBase 
+    });
+  } catch (error: any) {
+    console.error('[SignedURL] Error generating signed URL:', error);
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }

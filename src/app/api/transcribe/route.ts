@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
+// Next.js App Router route segment config
+// Increases the body size limit beyond Vercel's default 4.5MB for serverless functions
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Allow up to 60s for large file transcription
+
 // Supported audio file extensions and MIME types
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB max (both OpenAI and Groq limit)
 

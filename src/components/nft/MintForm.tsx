@@ -69,42 +69,109 @@ async function compressForTranscription(file: File): Promise<Blob> {
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Uploads a file to IPFS via our server-side proxy (/api/upload).
- * The server calls Pinata directly (no CORS), so this works reliably from the browser.
+ * Uploads a file directly to Pinata from the browser.
+ * Bypasses Vercel's 4.5MB Serverless Function request size limits.
+ * 
+ * Strategy:
+ *  1. Try Pinata v3 Files API via signed URL (most robust, no proxy needed)
+ *  2. Fall back to legacy v2 pinFileToIPFS with JWT (if signed URL unavailable)
  */
 async function uploadToPinataSigned(
   file: File | Blob,
   fileName: string,
   gateway: string
 ): Promise<{ url: string; hash: string }> {
-  const formData = new FormData();
-  // Cast Blob to File if needed so FormData sends the correct filename
-  if (file instanceof File) {
-    formData.append('file', file);
-  } else {
-    formData.append('file', new File([file], fileName, { type: file.type }));
-  }
-  formData.append('tokenId', fileName);
-
-  const res = await fetch('/api/upload', {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!res.ok) {
-    let msg = `Upload failed (${res.status})`;
+  // 1. Get upload credentials from our server (either signed URL or JWT)
+  const credRes = await fetch('/api/upload/signed-url');
+  if (!credRes.ok) {
+    let msg = `Failed to get upload credentials (${credRes.status})`;
     try {
-      const e = await res.json();
+      const e = await credRes.json();
       msg = e?.details || e?.error || msg;
     } catch {}
     throw new Error(msg);
   }
+  const creds = await credRes.json();
+  const activeGateway = gateway || creds.gateway || 'https://gateway.pinata.cloud/ipfs';
 
-  const data = await res.json();
-  const cid = data?.hash;
-  if (!cid) throw new Error('Upload succeeded but no CID returned.');
+  // Normalize the file to a File object with a proper name
+  const fileObj = file instanceof File
+    ? file
+    : new File([file], fileName, { type: file.type || 'application/octet-stream' });
 
-  const base = gateway.endsWith('/') ? gateway.slice(0, -1) : gateway;
+  let cid: string;
+
+  if (creds.mode === 'signed' && creds.signedUrl) {
+    // === Mode 1: Pinata v3 Files API via Signed Upload URL ===
+    // Browser uploads directly to Pinata's upload endpoint — no size limits from our server
+    const formData = new FormData();
+    formData.append('file', fileObj, fileName);
+    formData.append('name', fileName);
+
+    const uploadRes = await fetch(creds.signedUrl, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!uploadRes.ok) {
+      let msg = `Pinata upload failed (${uploadRes.status})`;
+      try {
+        const e = await uploadRes.json();
+        msg = e?.error?.details || e?.error?.message || e?.error || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    const uploadData = await uploadRes.json();
+    cid = uploadData?.data?.cid;
+    if (!cid) throw new Error('Upload succeeded but no CID returned from v3 API.');
+
+  } else {
+    // === Mode 2: Pinata v3 Files API with Bearer JWT (fallback) ===
+    // Uses the v3 upload endpoint which is more reliable than the legacy v2 pinFileToIPFS
+    const jwt = creds.token;
+    if (!jwt) throw new Error('No upload credentials received from server.');
+
+    const formData = new FormData();
+    formData.append('file', fileObj, fileName);
+    formData.append('name', fileName);
+
+    // Try v3 endpoint first (better for large files), fall back to v2 if needed
+    let uploadRes = await fetch('https://uploads.pinata.cloud/v3/files', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${jwt}` },
+      body: formData
+    });
+
+    // If v3 fails (e.g., scoped key doesn't have v3 permission), try legacy v2
+    if (!uploadRes.ok && uploadRes.status !== 413) {
+      const v2FormData = new FormData();
+      v2FormData.append('file', fileObj);
+      v2FormData.append('pinataMetadata', JSON.stringify({ name: fileName }));
+      v2FormData.append('pinataOptions', JSON.stringify({ cidVersion: 0 }));
+      uploadRes = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${jwt}` },
+        body: v2FormData
+      });
+    }
+
+    if (!uploadRes.ok) {
+      let msg = `Pinata upload failed (${uploadRes.status})`;
+      try {
+        const e = await uploadRes.json();
+        msg = e?.error?.details || e?.error?.message || e?.error || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    const uploadData = await uploadRes.json();
+    // v3 returns { data: { cid } }, v2 returns { IpfsHash }
+    cid = uploadData?.data?.cid || uploadData?.IpfsHash;
+    if (!cid) throw new Error('Upload succeeded but no CID returned.');
+  }
+
+  const base = activeGateway.endsWith('/') ? activeGateway.slice(0, -1) : activeGateway;
   const gatewayBase = base.includes('/ipfs') ? base : `${base}/ipfs`;
   return { hash: cid, url: `${gatewayBase}/${cid}` };
 }
