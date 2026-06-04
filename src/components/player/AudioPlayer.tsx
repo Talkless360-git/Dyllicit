@@ -143,7 +143,8 @@ const AudioPlayer: React.FC = () => {
 
     const isOwner = Number(nftBalance || 0) > 0;
     const isAuthor = !!session?.user?.id && !!currentTrack?.authorId && session.user.id === currentTrack.authorId;
-    const isGated = currentTrack?.isGated && !isSubscriber && !isAuthor && !isOwner;
+    // Gate if user is NOT a subscriber, NOT the author, and does NOT own the NFT
+    const isGated = !isSubscriber && !isAuthor && !isOwner;
 
     if (isGated) {
       activeMedia.pause();
@@ -242,7 +243,8 @@ const AudioPlayer: React.FC = () => {
 
   const isOwner = Number(nftBalance || 0) > 0;
   const isAuthor = session?.user?.id === currentTrack?.authorId && !!currentTrack?.authorId;
-  const isGated = currentTrack?.isGated && !isSubscriber && !isAuthor && !isOwner;
+  // Gate if user is NOT a subscriber, NOT the author, and does NOT own the NFT
+  const isGated = !isSubscriber && !isAuthor && !isOwner;
 
   const defaultLyrics = [
     { time: 0,  text: "Welcome to Dyllicit" },
@@ -593,8 +595,8 @@ const AudioPlayer: React.FC = () => {
         <div className="premium-overlay" style={{ position: 'absolute', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
            <div style={{ textAlign: 'center', padding: '1rem' }}>
              <Star size={24} color="var(--accent)" fill="var(--accent)" style={{ marginBottom: '0.5rem' }} />
-             <p style={{ fontSize: '0.8rem', margin: 0 }}>Gated Content</p>
-             <button className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }} onClick={() => { setIsExpanded(false); router.push('/subscription'); }}>Unlock</button>
+             <p style={{ fontSize: '0.8rem', margin: 0 }}>Subscribers Only</p>
+             <button className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }} onClick={() => { setIsExpanded(false); router.push('/subscription'); }}>Subscribe to Unlock</button>
            </div>
         </div>
       )}

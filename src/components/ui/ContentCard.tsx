@@ -6,6 +6,7 @@ import { useUIStore } from '@/store/useUIStore';
 import { Play, Lock, Plus } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 interface ContentCardProps {
   id: string;
@@ -28,17 +29,19 @@ const ContentCard: React.FC<ContentCardProps> = ({
   const { data: session } = useSession();
   const { setCurrentTrack } = usePlayerStore();
   const { openPlaylistModal } = useUIStore();
+  const router = useRouter();
   const safeThumbnail = getIPFSUrl(thumbnailUrl) || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop';
 
   const isSubscriber = session?.user?.isSubscribed;
   const isAuthor = !!session?.user?.id && !!authorId && session.user.id === authorId;
   
-  // All tracks are gated unless the user is a subscriber, the author, or owns the NFT (indicated by presence of url)
+  // All tracks are gated unless the user is a subscriber or the author
+  // (NFT ownership is reflected server-side: url will be null/redacted for non-owners)
   const effectiveIsGated = !isSubscriber && !isAuthor && !url;
 
   const handlePlay = () => {
-    if (effectiveIsGated && !url) {
-      alert("This content is Gated. You need a subscription to play it.");
+    if (effectiveIsGated) {
+      router.push('/subscription');
       return;
     }
     const track = { 
