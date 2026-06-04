@@ -10,6 +10,66 @@ import { formatEther } from 'viem';
 import NFTABI from "@/lib/blockchain/contracts/ChainStreamNFT.json";
 
 const MintForm: React.FC = () => {
+
+// ─── Audio Compression Helpers ────────────────────────────────────────────────
+// Encodes a mono AudioBuffer as a 16-bit PCM WAV Blob
+function encodeWav(buffer: AudioBuffer): Blob {
+  const numSamples = buffer.length;
+  const sampleRate = buffer.sampleRate;
+  const dataSize = numSamples * 2; // 16-bit mono = 2 bytes/sample
+  const arrayBuf = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(arrayBuf);
+  const writeStr = (off: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+  };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);               // PCM
+  view.setUint16(22, 1, true);               // Mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);  // byteRate
+  view.setUint16(32, 2, true);               // blockAlign
+  view.setUint16(34, 16, true);              // bitsPerSample
+  writeStr(36, 'data');
+  view.setUint32(40, dataSize, true);
+  const samples = buffer.getChannelData(0);
+  let off = 44;
+  for (let i = 0; i < numSamples; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    off += 2;
+  }
+  return new Blob([arrayBuf], { type: 'audio/wav' });
+}
+
+// Resamples an audio file to 8 kHz mono WAV for transcription.
+// 8kHz is sufficient for speech/lyrics recognition and keeps the
+// payload well under Vercel's 4.5MB serverless body limit.
+async function compressForTranscription(file: File): Promise<Blob> {
+  const TARGET_RATE = 8000;
+  const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
+  const audioCtx = new AudioContextClass();
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+    const length = Math.ceil(decoded.duration * TARGET_RATE);
+    const offCtx = new OfflineAudioContext(1, length, TARGET_RATE);
+    const src = offCtx.createBufferSource();
+    src.buffer = decoded;
+    src.connect(offCtx.destination);
+    src.start(0);
+    const resampled = await offCtx.startRendering();
+    return encodeWav(resampled);
+  } finally {
+    audioCtx.close();
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+const MintForm: React.FC = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -34,6 +94,7 @@ const MintForm: React.FC = () => {
   // AI Lyrics State
   const [lyrics, setLyrics] = useState('');
   const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'transcribing' | 'completed' | 'approved'>('idle');
+  const [transcribeStep, setTranscribeStep] = useState('');  // sub-step label shown during transcription
   const [lyricsApproved, setLyricsApproved] = useState(false);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState('');
 
@@ -120,10 +181,32 @@ const MintForm: React.FC = () => {
     
     setLyricsStatus('transcribing');
     setLyricsApproved(false);
+    setTranscribeStep('');
     
     try {
+      let fileToSend: File | Blob = file;
+      let fileName = file.name;
+
+      // Vercel serverless functions have a ~4.5MB body limit.
+      // If the audio file is larger, compress it to 8kHz mono WAV before sending.
+      // 8kHz is sufficient for Whisper speech/lyrics transcription.
+      if (file.size > 3.5 * 1024 * 1024) {
+        setTranscribeStep('Compressing audio...');
+        try {
+          const compressed = await compressForTranscription(file);
+          const origMB = (file.size / 1024 / 1024).toFixed(1);
+          const compMB = (compressed.size / 1024 / 1024).toFixed(1);
+          console.log(`[Transcribe] Compressed ${origMB}MB → ${compMB}MB (8kHz mono WAV)`);
+          fileToSend = compressed;
+          fileName = file.name.replace(/\.[^.]+$/, '_compressed.wav');
+        } catch (compErr) {
+          console.warn('[Transcribe] Compression failed, sending original:', compErr);
+        }
+      }
+
+      setTranscribeStep('AI transcribing lyrics...');
       const transFormData = new FormData();
-      transFormData.append('file', file);
+      transFormData.append('file', fileToSend, fileName);
       
       const res = await fetch('/api/transcribe', {
         method: 'POST',
@@ -131,10 +214,10 @@ const MintForm: React.FC = () => {
       });
       
       if (!res.ok) {
-        // Safely parse error body — server might return plain text (e.g. 413 "Request Entity Too Large")
+        // Safely parse error body — server might return plain text (e.g. 413)
         let errorMessage = `Server error (${res.status})`;
         if (res.status === 413) {
-          errorMessage = 'File is too large. Maximum audio size is 25MB.';
+          errorMessage = 'Audio is too long to transcribe. Try exporting as MP3 at 128kbps, or use a shorter clip (under 5 min).';
         } else {
           try {
             const errorData = await res.json();
@@ -154,6 +237,8 @@ const MintForm: React.FC = () => {
       console.error("Transcription failed:", error);
       alert(`Transcription Error: ${error.message}`);
       setLyricsStatus('idle');
+    } finally {
+      setTranscribeStep('');
     }
   };
 
@@ -411,11 +496,15 @@ const MintForm: React.FC = () => {
           {lyricsStatus === 'transcribing' && (
             <div className="lyrics-loading">
               <Loader2 className="animate-spin" size={32} color="var(--primary)" />
-              <p>AI speech-to-text engine is processing audio...</p>
+              <p>{transcribeStep || 'AI speech-to-text engine is processing audio...'}</p>
               <div className="progress-bar-placeholder">
                 <div className="progress-bar-fill-animated"></div>
               </div>
-              <span className="loading-status">Analyzing frequencies & structuring lyrics...</span>
+              <span className="loading-status">
+                {transcribeStep === 'Compressing audio...'
+                  ? 'Resampling to 8kHz mono for upload...'
+                  : 'Analyzing frequencies & structuring lyrics...'}
+              </span>
             </div>
           )}
 
