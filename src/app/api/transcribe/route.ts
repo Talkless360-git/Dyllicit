@@ -2,17 +2,6 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-// Increase the body size limit for this route to handle audio file uploads up to 50MB.
-// Next.js defaults to 4MB which causes a plain-text 413 that the client can't parse.
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-    responseLimit: '50mb',
-  },
-};
-
 // Supported audio file extensions and MIME types
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB max (both OpenAI and Groq limit)
 
