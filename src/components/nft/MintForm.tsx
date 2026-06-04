@@ -9,7 +9,6 @@ import { useReadContract } from 'wagmi';
 import { formatEther } from 'viem';
 import NFTABI from "@/lib/blockchain/contracts/ChainStreamNFT.json";
 
-const MintForm: React.FC = () => {
 
 // ─── Audio Compression Helpers ────────────────────────────────────────────────
 // Encodes a mono AudioBuffer as a 16-bit PCM WAV Blob
