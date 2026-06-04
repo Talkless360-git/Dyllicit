@@ -68,6 +68,40 @@ async function compressForTranscription(file: File): Promise<Blob> {
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Uploads a file directly from the browser to Pinata, bypassing Vercel's
+ * 4.5MB serverless body limit. Requires a Pinata JWT obtained from
+ * /api/upload/token (which validates the user session server-side).
+ */
+async function uploadToPinataDirect(
+  file: File | Blob,
+  fileName: string,
+  jwt: string,
+  gateway: string
+): Promise<{ url: string; hash: string }> {
+  const form = new FormData();
+  form.append('file', file, fileName);
+  form.append('pinataMetadata', JSON.stringify({ name: fileName }));
+  form.append('pinataOptions', JSON.stringify({ cidVersion: 0 }));
+
+  const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${jwt}` },
+    body: form,
+  });
+
+  if (!res.ok) {
+    let msg = `Pinata upload failed (${res.status})`;
+    try { const e = await res.json(); msg = e?.error?.details || e?.error || msg; } catch {}
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const base = gateway.endsWith('/') ? gateway.slice(0, -1) : gateway;
+  const gatewayBase = base.includes('/ipfs') ? base : `${base}/ipfs`;
+  return { hash: data.IpfsHash, url: `${gatewayBase}/${data.IpfsHash}` };
+}
+
 const MintForm: React.FC = () => {
   const [formData, setFormData] = useState({
     title: '',
@@ -281,20 +315,19 @@ const MintForm: React.FC = () => {
       
       const tokenId = (BigInt(Date.now()) * BigInt(1000) + BigInt(Math.floor(Math.random() * 1000))).toString();
 
+      // Fetch Pinata JWT once for all direct uploads (bypasses Vercel 4.5MB body limit)
+      const tokenRes = await fetch('/api/upload/token');
+      if (!tokenRes.ok) throw new Error('Could not get upload credentials. Please sign in.');
+      const { token: pinataJwt, gateway: pinataGateway } = await tokenRes.json();
+
       if (coverFile) {
-        const coverForms = new FormData();
-        coverForms.append('file', coverFile);
-        coverForms.append('tokenId', `${tokenId}_cover`);
-        
-        const coverRes = await fetch('/api/upload', { method: 'POST', body: coverForms });
-        if (!coverRes.ok) {
-          let errMsg = `Cover upload failed (${coverRes.status})`;
-          try { const err = await coverRes.json(); errMsg = `Cover upload failed: ${err.details || err.error}`; } catch {}
-          throw new Error(errMsg);
-        }
-        
-        const coverData = await coverRes.json();
-        coverUrl = coverData.url;
+        const coverUrl2 = await uploadToPinataDirect(
+          coverFile,
+          `${tokenId}_cover_${coverFile.name}`,
+          pinataJwt,
+          pinataGateway
+        );
+        coverUrl = coverUrl2.url;
       }
 
       const metadata = {
@@ -311,19 +344,13 @@ const MintForm: React.FC = () => {
         ]
       };
 
-      const uploadForms = new FormData();
-      uploadForms.append('file', file);
-      uploadForms.append('tokenId', tokenId);
-
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadForms });
-      if (!uploadRes.ok) {
-        let errMsg = `Media upload failed (${uploadRes.status})`;
-        try { const err = await uploadRes.json(); errMsg = `Media upload failed: ${err.details || err.error}`; } catch {}
-        throw new Error(errMsg);
-      }
-
-      const uploadData = await uploadRes.json();
-      mediaUrl = uploadData.url;
+      const uploadResult = await uploadToPinataDirect(
+        file,
+        `${tokenId}_${file.name}`,
+        pinataJwt,
+        pinataGateway
+      );
+      mediaUrl = uploadResult.url;
       metadata.animation_url = mediaUrl;
 
       const metaRes = await fetch('/api/ipfs/metadata', {
