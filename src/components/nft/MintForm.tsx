@@ -131,8 +131,20 @@ const MintForm: React.FC = () => {
       });
       
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.details || errorData.error || "Failed to transcribe audio.");
+        // Safely parse error body — server might return plain text (e.g. 413 "Request Entity Too Large")
+        let errorMessage = `Server error (${res.status})`;
+        if (res.status === 413) {
+          errorMessage = 'File is too large. Maximum audio size is 25MB.';
+        } else {
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.details || errorData.error || errorMessage;
+          } catch {
+            const text = await res.text().catch(() => '');
+            if (text) errorMessage = text.substring(0, 200);
+          }
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await res.json();
@@ -192,8 +204,9 @@ const MintForm: React.FC = () => {
         
         const coverRes = await fetch('/api/upload', { method: 'POST', body: coverForms });
         if (!coverRes.ok) {
-          const err = await coverRes.json();
-          throw new Error(`Cover upload failed: ${err.details || err.error}`);
+          let errMsg = `Cover upload failed (${coverRes.status})`;
+          try { const err = await coverRes.json(); errMsg = `Cover upload failed: ${err.details || err.error}`; } catch {}
+          throw new Error(errMsg);
         }
         
         const coverData = await coverRes.json();
@@ -220,8 +233,9 @@ const MintForm: React.FC = () => {
 
       const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadForms });
       if (!uploadRes.ok) {
-        const err = await uploadRes.json();
-        throw new Error(`Media upload failed: ${err.details || err.error}`);
+        let errMsg = `Media upload failed (${uploadRes.status})`;
+        try { const err = await uploadRes.json(); errMsg = `Media upload failed: ${err.details || err.error}`; } catch {}
+        throw new Error(errMsg);
       }
 
       const uploadData = await uploadRes.json();
