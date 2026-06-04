@@ -30,7 +30,7 @@ export default async function MediaDetailsPage({ params }: { params: { id: strin
   const isOwned = media.nfts.length > 0;
   const isAuthor = session?.user?.id === media.authorId;
   const isSubscriber = session?.user?.isSubscribed === true;
-  const isAuthorized = !media.isGated || isAuthor || isSubscriber || isOwned;
+  const isAuthorized = isAuthor || isSubscriber || isOwned;
 
   const securedUrl = isAuthorized ? media.url : null;
 

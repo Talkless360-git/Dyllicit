@@ -78,7 +78,7 @@ export async function GET(req: Request) {
 
     const redactMedia = (media: any) => {
       const isOwned = ownedMedia.some(m => m.id === media.id);
-      const isAuthorized = !media.isGated || media.authorId === userId || session.user.isSubscribed || isOwned;
+      const isAuthorized = media.authorId === userId || session.user.isSubscribed || isOwned;
       return {
         ...media,
         url: isAuthorized ? media.url : null

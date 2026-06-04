@@ -39,7 +39,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       const isOwned = item.media.nfts.length > 0;
       const isAuthor = session?.user?.id === item.media.authorId;
       const isSubscriber = session?.user?.isSubscribed === true;
-      const isAuthorized = !item.media.isGated || isAuthor || isSubscriber || isOwned;
+      const isAuthorized = isAuthor || isSubscriber || isOwned;
 
       return {
         ...item,

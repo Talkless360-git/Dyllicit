@@ -26,10 +26,9 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Security Layer: Redact URLs for gated content if user is not authorized
+    // Security Layer: Redact URLs if user is not authorized (requires subscription, authorship, or NFT ownership)
     const securedMedia = mediaList.map(item => {
       const isAuthorized = 
-        !item.isGated ||
         item.authorId === session?.user?.id || 
         session?.user?.isSubscribed === true ||
         item.nfts.length > 0;
